@@ -8,9 +8,9 @@ export default function LoginPage() {
         
         {/* Logo / Branding Placeholder */}
         <div className="flex flex-col items-center text-center">
-          <div className="h-12 w-12 bg-zinc-900 dark:bg-zinc-100 rounded-xl flex items-center justify-center mb-4">
+          {/* <div className="h-12 w-12 bg-zinc-900 dark:bg-zinc-100 rounded-xl flex items-center justify-center mb-4">
             <span className="text-zinc-50 dark:text-zinc-900 font-bold text-xl">K</span>
-          </div>
+          </div> */}
           <h1 className="text-2xl font-bold tracking-tight">Welcome to KrewOS</h1>
           <p className="text-muted-foreground mt-2">Manage your construction projects with ease.</p>
         </div>

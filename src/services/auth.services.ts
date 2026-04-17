@@ -7,4 +7,8 @@ export const AuthService = {
     const response = await httpClient.post("/auth/login", data);
     return response.data;
   },
+  logout: async () => {
+    const response = await httpClient.post("/auth/logout");
+    return response.data;
+  },
 };

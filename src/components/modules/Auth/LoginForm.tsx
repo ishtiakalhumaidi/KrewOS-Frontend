@@ -24,12 +24,15 @@ export default function LoginForm() {
     mutationFn: AuthService.login,
     onSuccess: (res) => {
       if (res.success && res.data?.accessToken) {
-        setAccessToken(res.data.accessToken); 
-        router.push("/dashboard"); 
+        setAccessToken(res.data.accessToken);
+        router.push("/dashboard");
       }
     },
     onError: (error: any) => {
-      console.error("Login failed:", error.response?.data?.message || error.message);
+      console.error(
+        "Login failed:",
+        error.response?.data?.message || error.message,
+      );
     },
   });
 
@@ -58,9 +61,9 @@ export default function LoginForm() {
         {/* Email Field */}
         <form.Field
           name="email"
-          validators={{ 
+          validators={{
             // 👉 NEW API: Just pass the Zod schema directly!
-            onChange: loginSchema.shape.email 
+            onChange: loginSchema.shape.email,
           }}
           children={(field) => (
             <div className="space-y-2">
@@ -71,12 +74,14 @@ export default function LoginForm() {
                 value={field.state.value}
                 onBlur={field.handleBlur}
                 onChange={(e) => field.handleChange(e.target.value)}
-                placeholder="m.scott@dundermifflin.com"
+                placeholder="example@krewos.com"
                 disabled={loginMutation.isPending}
               />
               {field.state.meta.errors.length > 0 ? (
                 <p className="text-sm text-destructive font-medium">
-                  {field.state.meta.errors.join(", ")}
+                  {field.state.meta.errors
+                    .map((err: any) => err.message || err)
+                    .join(", ")}
                 </p>
               ) : null}
             </div>
@@ -86,14 +91,17 @@ export default function LoginForm() {
         {/* Password Field */}
         <form.Field
           name="password"
-          validators={{ 
-            onChange: loginSchema.shape.password 
+          validators={{
+            onChange: loginSchema.shape.password,
           }}
           children={(field) => (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor={field.name}>Password</Label>
-                <a href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
+                <a
+                  href="/forgot-password"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
                   Forgot password?
                 </a>
               </div>
@@ -108,7 +116,9 @@ export default function LoginForm() {
               />
               {field.state.meta.errors.length > 0 ? (
                 <p className="text-sm text-destructive font-medium">
-                  {field.state.meta.errors.join(", ")}
+                  {field.state.meta.errors
+                    .map((err: any) => err.message || err)
+                    .join(", ")}
                 </p>
               ) : null}
             </div>
@@ -119,12 +129,17 @@ export default function LoginForm() {
       {/* Global Error Message */}
       {loginMutation.isError && (
         <div className="p-3 text-sm rounded-md bg-destructive/15 text-destructive">
-          {(loginMutation.error as any).response?.data?.message || "Invalid credentials. Please try again."}
+          {(loginMutation.error as any).response?.data?.message ||
+            "Invalid credentials. Please try again."}
         </div>
       )}
 
       {/* Submit Button */}
-      <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+      <Button
+        type="submit"
+        className="w-full"
+        disabled={loginMutation.isPending}
+      >
         {loginMutation.isPending ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

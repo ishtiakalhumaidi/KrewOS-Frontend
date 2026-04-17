@@ -1,7 +1,7 @@
 import Cookies from "js-cookie";
 
 export const setAccessToken = (token: string) => {
-  Cookies.set("accessToken", token, { expires: 1 }); // 1 day
+  Cookies.set("accessToken", token, { expires: 1 }); 
 };
 
 export const getAccessToken = () => {
