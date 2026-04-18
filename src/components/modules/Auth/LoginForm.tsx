@@ -15,25 +15,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { setCookie } from "@/lib/cookieUtils";
+import { toast } from "sonner";
 
 export default function LoginForm() {
   const router = useRouter();
 
   // 1. React Query Mutation for Login
-  const loginMutation = useMutation({
+ const loginMutation = useMutation({
     mutationFn: AuthService.login,
     onSuccess: (res) => {
-      if (res.success && res.data?.accessToken) {
-        setCookie(res.data.accessToken);
-        router.push("/dashboard");
+      toast.success("Logged in successfully!");
+      router.push("/dashboard");
+    },
+   onError: (error: any, variables: any) => {
+      const errorMessage = error?.response?.data?.message;
+      if (errorMessage === "Email not verified") {
+        toast.error("Please verify your email before logging in.");
+    
+        router.push(`/verify?email=${encodeURIComponent(variables.email)}`);
+      } else {
+        toast.error(errorMessage || "Failed to login. Please try again.");
       }
-    },
-    onError: (error: any) => {
-      console.error(
-        "Login failed:",
-        error.response?.data?.message || error.message,
-      );
-    },
+    }
   });
 
   // 2. TanStack Form Setup (NEW API - No adapter needed!)

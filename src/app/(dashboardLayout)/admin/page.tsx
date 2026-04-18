@@ -28,7 +28,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const stats = statsResponse;
+  const stats = statsResponse.data;
 
   return (
     <div className="space-y-8">

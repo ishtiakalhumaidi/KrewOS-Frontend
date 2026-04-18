@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 export default function MemberDashboardPage() {
   const { data: response, isLoading, isError, error } = useQuery({
     queryKey: ["dashboard-stats"],
-    queryFn: DashboardService.getDashboardStats,
+    queryFn: DashboardService.getStats,
   });
 
   const stats = response?.data;

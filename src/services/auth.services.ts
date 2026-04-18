@@ -10,11 +10,28 @@ export const AuthService = {
   },
 
   // 🚪 Logout (Clears server-side session)
-  logout: async () => {
-    return await httpClient.post("/auth/logout");
+  // logout: async () => {
+  //   return await httpClient.post("/auth/logout");
+  // },
+
+  resendVerificationCode: async (email: string) => {
+    return await httpClient.post("/auth/resend-verification", { email });
+  },
+  // 👉 1. New Company Registration
+  registerCompany: async (data: {
+    companyName: string;
+    name: string;
+    email: string;
+    password: string;
+  }) => {
+    return await httpClient.post("/auth/register", data);
   },
 
-  
+  // 👉 2. Verify the 6-digit OTP
+  verifyEmail: async (data: { email: string; otp: string }) => {
+    return await httpClient.post("/auth/verify-email", data);
+  },
+
   sendInvite: async (data: { email: string; role: string }) => {
     return await httpClient.post("/auth/invite", data);
   },
@@ -39,5 +56,5 @@ export const AuthService = {
   // 🔄 Token Refresh (Handled automatically by axios interceptor, but here if needed)
   refreshToken: async () => {
     return await httpClient.post("/auth/refresh-token", {});
-  }
+  },
 };

@@ -5,10 +5,11 @@ import { httpClient } from "@/lib/axios/httpClient";
 export const TaskService = {
   // Fetch tasks for a specific project
   getProjectTasks: async (projectId: string) => {
-    const res = await httpClient.get(`/tasks/project/${projectId}`);
-    return res; 
+    return await httpClient.get(`/tasks/project/${projectId}`);
   },
-
+  getMyTasks: async () => {
+    return await httpClient.get("/tasks/my-tasks");
+  },
   // Create a new task
   createTask: async (data: {
     title: string;
