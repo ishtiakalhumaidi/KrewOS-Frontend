@@ -10,11 +10,11 @@ import { Loader2 } from "lucide-react";
 
 import { AuthService } from "@/services/auth.services";
 import { loginSchema } from "@/zod/auth.validation";
-import { setAccessToken } from "@/lib/cookieUtils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { setCookie } from "@/lib/cookieUtils";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function LoginForm() {
     mutationFn: AuthService.login,
     onSuccess: (res) => {
       if (res.success && res.data?.accessToken) {
-        setAccessToken(res.data.accessToken);
+        setCookie(res.data.accessToken);
         router.push("/dashboard");
       }
     },

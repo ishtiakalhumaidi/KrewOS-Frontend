@@ -1,23 +1,25 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
 import { ProjectService } from "@/services/project.services";
-import { getUserInfo } from "@/lib/authUtils"; // 👉 Import this
 import { Button } from "@/components/ui/button";
 import { Plus, Loader2, HardHat } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 export default function ProjectsManagementPage() {
-  const userInfo = getUserInfo();
-
-  const { data: response, isLoading, isError } = useQuery({
-    queryKey: ["projects", userInfo?.companyId],
+  const {
+    data: response,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["projects"],
     queryFn: ProjectService.getCompanyProjects,
-    enabled: !!userInfo?.companyId, 
   });
-
-  const projects = response?.data || [];
+  console.log(response);
+  const projects = response || [];
 
   return (
     <div className="space-y-6">
@@ -29,9 +31,11 @@ export default function ProjectsManagementPage() {
             Manage all your company construction projects and sites.
           </p>
         </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Create New Project
+        <Button asChild>
+          <Link href="/admin/projects/new">
+            <Plus className="mr-2 h-4 w-4" />
+            Create New Project
+          </Link>
         </Button>
       </div>
 
@@ -60,9 +64,12 @@ export default function ProjectsManagementPage() {
                 </div>
                 <h3 className="font-semibold text-lg">No projects found</h3>
                 <p className="text-muted-foreground text-sm max-w-sm mt-1 mb-4">
-                  You haven't created any construction projects yet. Click the button above to get started.
+                  You have not created any construction projects yet. Click the
+                  button above to get started.
                 </p>
-                <Button variant="outline">Create New Project</Button>
+                <Button asChild variant="outline">
+                  <Link href="/admin/projects/new">Create New Project</Link>
+                </Button>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -73,26 +80,45 @@ export default function ProjectsManagementPage() {
                       <th className="px-6 py-3 font-medium">Location</th>
                       <th className="px-6 py-3 font-medium">Status</th>
                       <th className="px-6 py-3 font-medium">Start Date</th>
-                      <th className="px-6 py-3 font-medium text-right">Actions</th>
+                      <th className="px-6 py-3 font-medium text-right">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                     {projects.map((project: any) => (
-                      <tr key={project.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors">
+                      <tr
+                        key={project.id}
+                        className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50 transition-colors"
+                      >
                         <td className="px-6 py-4 font-medium text-zinc-900 dark:text-zinc-100">
                           {project.name}
                         </td>
-                        <td className="px-6 py-4 text-zinc-500">{project.location}</td>
+                        <td className="px-6 py-4 text-zinc-500">
+                          {project.location}
+                        </td>
                         <td className="px-6 py-4">
-                          <Badge variant={project.status === "ACTIVE" ? "default" : "secondary"}>
+                          <Badge
+                            variant={
+                              project.status === "ACTIVE"
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
                             {project.status}
                           </Badge>
                         </td>
                         <td className="px-6 py-4 text-zinc-500">
-                          {project.startDate ? new Date(project.startDate).toLocaleDateString() : "Not set"}
+                          {project.startDate
+                            ? new Date(project.startDate).toLocaleDateString()
+                            : "Not set"}
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <Button variant="ghost" size="sm">View Details</Button>
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link href={`/admin/projects/${project.id}`}>
+                              View Details
+                            </Link>
+                          </Button>
                         </td>
                       </tr>
                     ))}

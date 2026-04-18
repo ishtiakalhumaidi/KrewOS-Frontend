@@ -1,71 +1,126 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// src/proxy.ts
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { jwtDecode } from "jwt-decode";
+import { getDefaultDashboardRoute, getRouteOwner, isAuthRoute } from "./lib/authUtils";
 
-const AuthRoutes = ["/login", "/register", "/forgot-password"];
-const ProtectedRoutes = ["/dashboard", "/super-admin", "/admin", "/member"];
+// 1. Edge-compatible token refresh function using native fetch
+async function refreshTokenMiddleware(refreshToken: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Cookie: `refreshToken=${refreshToken}`,
+      },
+    });
+    return res.ok;
+  } catch (error) {
+    console.error("Error refreshing token in middleware:", error);
+    return false;
+  }
+}
 
-export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const accessToken = request.cookies.get("accessToken")?.value;
+export async function proxy(request: NextRequest) {
+  try {
+    const { pathname } = request.nextUrl;
+    const pathWithQuery = `${pathname}${request.nextUrl.search}`;
+    const accessToken = request.cookies.get("accessToken")?.value;
+    const refreshToken = request.cookies.get("refreshToken")?.value;
 
-  let decodedToken: any = null;
-  let isValidToken = false;
+    let decodedToken: any = null;
+    let isValidAccessToken = false;
+    let userRole: string | null = null;
+    let isExpiringSoon = false;
 
-  // 1. Verify the token is actually valid and not expired
-  if (accessToken) {
-    try {
-      decodedToken = jwtDecode(accessToken);
-      if (decodedToken && decodedToken.exp * 1000 > Date.now()) {
-        isValidToken = true;
+    // 2. Decode the token and check expiration safely on the Edge
+    if (accessToken) {
+      try {
+        decodedToken = jwtDecode(accessToken);
+        const expTime = decodedToken.exp * 1000;
+        
+        if (expTime > Date.now()) {
+          isValidAccessToken = true;
+          userRole = decodedToken.role;
+          
+          // Check if token expires in less than 5 minutes (300 seconds)
+          const remainingSeconds = (expTime - Date.now()) / 1000;
+          isExpiringSoon = remainingSeconds <= 300;
+        }
+      } catch (error) {
+        isValidAccessToken = false;
       }
-    } catch (error) {
-      isValidToken = false;
     }
-  }
 
-  // 2. Self-Healing: If token is bad, delete the cookie and force login
-  if (!isValidToken && accessToken) {
-    const response = NextResponse.redirect(new URL("/login", request.url));
-    response.cookies.delete("accessToken");
-    return response;
-  }
+    const routeOwner = getRouteOwner(pathname);
+    const isAuth = isAuthRoute(pathname);
 
-  // 3. If user is logged in, prevent them from seeing Auth routes OR handle the base /dashboard route
-  if (isValidToken && (AuthRoutes.includes(pathname) || pathname === "/dashboard")) {
-    const role = decodedToken?.role;
-    let redirectUrl = "/dashboard"; // fallback
+    // Unify OWNER and ADMIN because they share the /admin dashboard in Krewos
+    const unifiedRole = userRole === "OWNER" ? "ADMIN" : userRole;
 
-    // Perform the role redirect perfectly on the server edge!
-    if (role === "SUPER_ADMIN") redirectUrl = "/super-admin";
-    else if (role === "ADMIN" || role === "OWNER") redirectUrl = "/admin";
-    else if (role === "MEMBER") redirectUrl = "/member";
+    // 3. Proactively refresh token if needed
+    if (isValidAccessToken && refreshToken && isExpiringSoon) {
+      const requestHeaders = new Headers(request.headers);
+      const response = NextResponse.next({ request: { headers: requestHeaders } });
 
-    // Prevent redirecting to the exact same URL if we are already there
-    if (pathname !== redirectUrl) {
-      return NextResponse.redirect(new URL(redirectUrl, request.url));
+      const refreshed = await refreshTokenMiddleware(refreshToken);
+      if (refreshed) {
+        requestHeaders.set("x-token-refreshed", "1");
+      }
+
+      return NextResponse.next({
+        request: { headers: requestHeaders },
+        headers: response.headers,
+      });
     }
-  }
 
-  // 4. If user is NOT logged in and tries to access Protected routes
-  const isProtectedRoute = ProtectedRoutes.some((route) => pathname.startsWith(route));
-  if (!isValidToken && isProtectedRoute) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
+    // Rule 1: Logged-in users should not access auth pages
+    if (isAuth && isValidAccessToken && pathname !== "/reset-password") {
+      return NextResponse.redirect(
+        new URL(getDefaultDashboardRoute(userRole as string), request.url)
+      );
+    }
 
-  return NextResponse.next();
+    // Rule 2: Handle explicit /dashboard redirect
+    if (pathname === "/dashboard" && isValidAccessToken) {
+      return NextResponse.redirect(
+        new URL(getDefaultDashboardRoute(userRole as string), request.url)
+      );
+    }
+
+    // Rule 3: Public routes -> allow
+    if (routeOwner === null && !isAuth) {
+      return NextResponse.next();
+    }
+
+    // Rule 4: User is Not logged in but trying to access a protected route -> login
+    if (!isValidAccessToken && routeOwner !== null) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathWithQuery);
+      
+      // Self-heal: clear dead cookies
+      const response = NextResponse.redirect(loginUrl);
+      response.cookies.delete("accessToken");
+      return response;
+    }
+
+    // Rule 5: User trying to visit role-based protected route but doesn't have required role
+    if (routeOwner !== null && unifiedRole !== null) {
+      if (routeOwner !== unifiedRole) {
+        return NextResponse.redirect(
+          new URL(getDefaultDashboardRoute(userRole as string), request.url)
+        );
+      }
+    }
+
+    return NextResponse.next();
+
+  } catch (error) {
+    console.error("Error in proxy middleware:", error);
+    return NextResponse.next();
+  }
 }
 
 export const config = {
   matcher: [
-    "/login",
-    "/register",
-    "/forgot-password",
-    "/dashboard/:path*",
-    "/super-admin/:path*",
-    "/admin/:path*",
-    "/member/:path*",
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|.well-known).*)',
   ],
 };

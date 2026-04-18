@@ -3,21 +3,15 @@
 import { useQueryClient, useMutation } from "@tanstack/react-query"; 
 import { LogOut, Bell, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { removeAccessToken } from "@/lib/cookieUtils";
 import { AuthService } from "@/services/auth.services";
 
 export default function DashboardNavbar() {
   const queryClient = useQueryClient();
 
-  // 1. Create a mutation to hit your backend API
   const logoutMutation = useMutation({
     mutationFn: AuthService.logout,
     onSettled: () => {
-      // 2. Whether the API succeeds or fails, we forcefully clear the client state
-      removeAccessToken();
       queryClient.clear();
-      
-      // 3. Hard reload to login to wipe memory
       window.location.href = "/login";
     },
   });
@@ -28,7 +22,6 @@ export default function DashboardNavbar() {
         <Bell className="h-5 w-5" />
       </Button>
       
-      {/* 4. Attach the mutation to the button */}
       <Button 
         variant="outline" 
         size="sm" 

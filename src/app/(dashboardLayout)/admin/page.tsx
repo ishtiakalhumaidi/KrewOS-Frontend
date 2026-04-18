@@ -12,7 +12,6 @@ export default function AdminDashboardPage() {
     queryKey: ["admin-dashboard-stats"],
     queryFn: DashboardService.getStats,
   });
-
   if (isLoading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
@@ -21,7 +20,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  if (isError || !statsResponse?.success) {
+  if (isError) {
     return (
       <div className="p-4 text-sm text-destructive bg-destructive/10 rounded-md">
         Failed to load dashboard statistics. Please try refreshing the page.
@@ -29,7 +28,7 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const stats = statsResponse.data.stats;
+  const stats = statsResponse;
 
   return (
     <div className="space-y-8">
