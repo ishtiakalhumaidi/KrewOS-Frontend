@@ -7,4 +7,7 @@ export const DashboardService = {
     const response = await httpClient.get("/dashboard/stats");
     return response.data;
   },
+  getDashboardStats: async () => {
+    return await httpClient.get("/dashboard/stats");
+  }
 };

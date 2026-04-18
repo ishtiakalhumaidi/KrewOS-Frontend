@@ -10,9 +10,15 @@ export const AttendanceService = {
   clockOut: async (attendanceId: string) => {
    return await httpClient.patch(`/attendance/clock-out/${attendanceId}`, {});
   },
+  getMyTodayAttendance: async (projectId: string) => {
+    return await httpClient.get(`/attendance/project/${projectId}/my-today`);
+  },
 
   // Fetch today's roster for the project
   getTodayAttendance: async (projectId: string) => {
     return await httpClient.get(`/attendance/project/${projectId}/today`);
+  },
+  getMyTimesheet: async (year: number, month: number) => {
+    return await httpClient.get(`/attendance/my-timesheet?year=${year}&month=${month}`);
   }
 };

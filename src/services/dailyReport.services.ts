@@ -18,8 +18,9 @@ export const DailyReportService = {
     return await httpClient.post("/daily-reports", data);
   },
 
-  // Update a report (e.g., editing the summary)
-  updateReport: async ({ reportId, data }: { reportId: string; data: any }) => {
-    return await httpClient.patch(`/daily-reports/${reportId}`, data);
+createDailyReport: async (data: FormData) => {
+    return await httpClient.post("/daily-reports", data, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
   }
 };

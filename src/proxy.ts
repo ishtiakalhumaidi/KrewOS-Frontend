@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
 import { jwtDecode } from "jwt-decode";
 import { getDefaultDashboardRoute, getRouteOwner, isAuthRoute } from "./lib/authUtils";
@@ -23,16 +24,26 @@ export async function proxy(request: NextRequest) {
   try {
     const { pathname } = request.nextUrl;
     const pathWithQuery = `${pathname}${request.nextUrl.search}`;
+    
+    // 👉 Grab ALL necessary cookies
     const accessToken = request.cookies.get("accessToken")?.value;
     const refreshToken = request.cookies.get("refreshToken")?.value;
+    const betterAuthToken = request.cookies.get("better-auth.session_token")?.value;
 
     let decodedToken: any = null;
     let isValidAccessToken = false;
     let userRole: string | null = null;
     let isExpiringSoon = false;
 
-    // 2. Decode the token and check expiration safely on the Edge
-    if (accessToken) {
+    // 👉 SECURITY CHECK: Ensure betterAuthToken exists AND isn't a fake "null" string
+    const isBetterAuthValid = 
+      !!betterAuthToken && 
+      betterAuthToken !== "null" && 
+      betterAuthToken !== "j%3Anull" && 
+      betterAuthToken !== "j:null";
+
+    // 2. Decode the token ONLY if BOTH the access token and better-auth session are valid
+    if (accessToken && isBetterAuthValid) {
       try {
         decodedToken = jwtDecode(accessToken);
         const expTime = decodedToken.exp * 1000;
@@ -91,14 +102,16 @@ export async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Rule 4: User is Not logged in but trying to access a protected route -> login
+    // Rule 4: User is Not logged in (or better-auth is null) but trying to access a protected route -> login
     if (!isValidAccessToken && routeOwner !== null) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirect", pathWithQuery);
       
-      // Self-heal: clear dead cookies
+      // Self-heal: clear ALL dead cookies so they don't get stuck in a loop
       const response = NextResponse.redirect(loginUrl);
       response.cookies.delete("accessToken");
+      response.cookies.delete("refreshToken");
+      response.cookies.delete("better-auth.session_token");
       return response;
     }
 

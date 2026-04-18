@@ -29,14 +29,19 @@ function JoinForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const joinMutation = useMutation({
+const joinMutation = useMutation({
     mutationFn: AuthService.acceptInvite,
-    onSuccess: (data) => {
-      localStorage.setItem("accessToken", data.accessToken);
-      router.push("/dashboard");
+    onSuccess: () => {
+      // 👉 1. Show a beautiful success message
+      toast.success("Account created successfully! Please log in to continue.");
+      
+     
+      router.push("/login");
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "Link expired or invalid.");
+    }
   });
-  console.log(joinMutation);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

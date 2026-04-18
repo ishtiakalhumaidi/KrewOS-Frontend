@@ -6,16 +6,23 @@ export const IncidentService = {
     return await httpClient.get(`/incidents/project/${projectId}`);
   },
 
-  // Matches: POST /
- reportIncident: async (formData: FormData) => {
-    return await httpClient.post("/incidents", formData);
+  reportIncident: async (data: FormData) => {
+    return await httpClient.post("/incidents", data, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
   },
 
-  // Matches: PATCH /:incidentId/resolve
-  resolveIncident: async ({ incidentId, isResolved, resolutionNotes }: { incidentId: string; isResolved: boolean; resolutionNotes?: string }) => {
-    return await httpClient.patch(`/incidents/${incidentId}/resolve`, { 
-      isResolved,
-      resolutionNotes
+  getMyIncidents: async () => {
+    return await httpClient.get("/incidents/my-reports");
+  },
+
+  resolveIncident: async (incidentId: string, data: FormData) => {
+    return await httpClient.patch(`/incidents/${incidentId}/resolve`, data, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
-  }
+  },
 };

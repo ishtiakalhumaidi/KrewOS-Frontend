@@ -6,288 +6,204 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { DailyReportService } from "@/services/dailyReport.services";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Loader2,
-  Plus,
-  FileText,
-  CloudRain,
-  Sun,
-  Cloud,
-  Wind,
-  Users,
-  CalendarDays,
-} from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, FileText, CloudSun, Users, Calendar, ImagePlus, ImageIcon, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 
 export default function DailyReportsTab({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
-
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [currentPhotos, setCurrentPhotos] = useState<string[]>([]);
+  
   // Form State
-  const [reportDate, setReportDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
-  const [summary, setSummary] = useState("");
-  const [workersPresent, setWorkersPresent] = useState("");
+  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
   const [weatherCondition, setWeatherCondition] = useState("SUNNY");
+  const [workersPresent, setWorkersPresent] = useState("");
+  const [summary, setSummary] = useState("");
+  const [photos, setPhotos] = useState<File[]>([]);
 
-  // Fetch Reports
   const { data: response, isLoading } = useQuery({
-    queryKey: ["project-reports", projectId],
+    queryKey: ["daily-reports", projectId],
     queryFn: () => DailyReportService.getProjectReports(projectId),
     enabled: !!projectId,
   });
 
-  // Mutations
   const createMutation = useMutation({
-    mutationFn: DailyReportService.createReport,
+    mutationFn: DailyReportService.createDailyReport,
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["project-reports", projectId],
-      });
+      toast.success("Daily report submitted successfully!");
       setIsModalOpen(false);
       setSummary("");
       setWorkersPresent("");
+      setPhotos([]);
+      queryClient.invalidateQueries({ queryKey: ["daily-reports", projectId] });
     },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "Failed to submit report.");
+    }
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!summary || !workersPresent) return;
+    if (!summary || !workersPresent) return toast.error("Please fill in all required fields.");
 
-    createMutation.mutate({
-      projectId,
-      reportDate: new Date(reportDate).toISOString(),
-      summary,
-      workersPresent: Number(workersPresent),
-      weatherCondition,
-    });
+    const formData = new FormData();
+    formData.append("projectId", projectId);
+    formData.append("reportDate", reportDate);
+    formData.append("weatherCondition", weatherCondition);
+    formData.append("workersPresent", workersPresent);
+    formData.append("summary", summary);
+
+    photos.forEach(file => formData.append("photos", file));
+
+    createMutation.mutate(formData);
+  };
+
+  const openPhotoViewer = (urls: string[]) => {
+    setCurrentPhotos(urls);
+    setIsPhotoModalOpen(true);
   };
 
   const reports = response?.data || [];
 
-  // Helper to render weather icons
-  const getWeatherIcon = (condition: string) => {
-    switch (condition) {
-      case "SUNNY":
-        return <Sun className="h-5 w-5 text-yellow-500" />;
-      case "RAINY":
-        return <CloudRain className="h-5 w-5 text-blue-500" />;
-      case "CLOUDY":
-        return <Cloud className="h-5 w-5 text-gray-400" />;
-      case "STORMY":
-        return <Wind className="h-5 w-5 text-teal-500" />;
-      case "SNOW":
-        return <Cloud className="h-5 w-5 text-blue-300" />;
-      default:
-        return <Sun className="h-5 w-5 text-yellow-500" />;
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex h-40 items-center justify-center border rounded-xl">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="flex h-40 items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div>
-          <CardTitle className="flex items-center">
-            <FileText className="h-5 w-5 mr-2 text-blue-600" />
-            Daily Site Reports
-          </CardTitle>
-          <CardDescription>
-            Log daily progress, weather conditions, and site attendance.
-          </CardDescription>
-        </div>
-
-        {/* REPORT MODAL */}
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Submit Daily Report
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Submit Daily Report</DialogTitle>
-              <DialogDescription>
-                Record the day's activities and site metrics.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Input
-                    type="date"
-                    value={reportDate}
-                    onChange={(e) => setReportDate(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Workers Present</Label>
-                  {/* Zod expects min 0 */}
-                  <Input
-                    type="number"
-                    min="0"
-                    value={workersPresent}
-                    onChange={(e) => setWorkersPresent(e.target.value)}
-                    placeholder="e.g., 25"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Weather Condition</Label>
-                <Select
-                  value={weatherCondition}
-                  onValueChange={setWeatherCondition}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select weather" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="SUNNY">Sunny / Clear</SelectItem>
-                    <SelectItem value="CLOUDY">Cloudy / Overcast</SelectItem>
-                    <SelectItem value="RAINY">Rainy</SelectItem>
-                    <SelectItem value="STORMY">Stormy</SelectItem>
-                    <SelectItem value="SNOW">Snow</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Work Summary *</Label>
-                {/* Zod expects min 5 chars */}
-                <Textarea
-                  value={summary}
-                  onChange={(e) => setSummary(e.target.value)}
-                  placeholder="Summarize the work completed today... (Min 5 characters)"
-                  className="min-h-[120px]"
-                  minLength={5}
-                  required
-                />
-              </div>
-
-              {createMutation.isError && (
-                <div className="text-sm font-medium text-destructive bg-destructive/10 p-3 rounded-md">
-                  
-                  {(createMutation.error as any)?.response?.data?.message || "Failed to submit the daily report."}
-                </div>
-              )}
-
-              <div className="flex justify-end pt-4">
-                <Button
-                  type="submit"
-                  disabled={
-                    createMutation.isPending ||
-                    summary.length < 5 ||
-                    !workersPresent
-                  }
-                >
-                  {createMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    "Submit Report"
-                  )}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </CardHeader>
-
-      <CardContent>
-        {reports.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-center bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border-2 border-dashed">
-            <FileText className="h-8 w-8 text-zinc-400 mb-2" />
-            <h3 className="font-semibold text-lg">No daily reports yet</h3>
-            <p className="text-muted-foreground text-sm">
-              Submit the first site report to start tracking progress.
-            </p>
+    <div className="space-y-6">
+      <Card className="shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center text-blue-700 dark:text-blue-400">
+              <FileText className="h-5 w-5 mr-2" /> Site Logs & Daily Reports
+            </CardTitle>
+            <CardDescription>Official daily records of site progress, weather, and workforce.</CardDescription>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {reports.map((report: any) => (
-              <div
-                key={report.id}
-                className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20"
-              >
-                <div className="flex items-center justify-between mb-3 border-b pb-3 dark:border-zinc-800">
-                  <div className="flex items-center space-x-2">
-                    <CalendarDays className="h-4 w-4 text-zinc-500" />
-                    <span className="font-semibold">
-                      {new Date(report.reportDate).toLocaleDateString(
-                        undefined,
-                        {
-                          weekday: "short",
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        },
-                      )}
-                    </span>
+          
+          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Plus className="mr-2 h-4 w-4" /> Log Today's Report
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Submit Daily Site Report</DialogTitle>
+                <DialogDescription>Note: You can only submit one official report per day.</DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Report Date *</Label>
+                    <Input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} required />
                   </div>
-                  <div className="flex items-center space-x-4 text-sm font-medium">
-                    <span className="flex items-center text-zinc-600 dark:text-zinc-300">
-                      <Users className="h-4 w-4 mr-1 text-zinc-400" />{" "}
-                      {report.workersPresent} Workers
-                    </span>
-                    <span className="flex items-center text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-800 px-2 py-1 rounded-md shadow-sm">
-                      {getWeatherIcon(report.weatherCondition)}
-                      <span className="ml-2 capitalize">
-                        {report.weatherCondition.toLowerCase()}
-                      </span>
-                    </span>
+                  <div className="space-y-2">
+                    <Label>Weather Condition *</Label>
+                    <Select value={weatherCondition} onValueChange={setWeatherCondition}>
+                      <SelectTrigger><SelectValue placeholder="Select weather..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SUNNY">Sunny</SelectItem>
+                        <SelectItem value="CLOUDY">Cloudy</SelectItem>
+                        <SelectItem value="RAINY">Rainy</SelectItem>
+                        <SelectItem value="STORMY">Stormy</SelectItem>
+                        <SelectItem value="SNOW">Snow</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
-                <div>
-                  <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-1">
-                    Daily Summary
-                  </h4>
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                    {report.summary}
-                  </p>
+                <div className="space-y-2">
+                  <Label>Workers Present Today *</Label>
+                  <Input type="number" min="0" value={workersPresent} onChange={(e) => setWorkersPresent(e.target.value)} required placeholder="e.g., 15" />
+                  <p className="text-xs text-muted-foreground">The system will automatically calculate absentees based on your total assigned workforce.</p>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Daily Summary / Progress *</Label>
+                  <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} required minLength={10} placeholder="What was accomplished today?" className="min-h-[100px]" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center"><ImagePlus className="h-4 w-4 mr-2" /> Site Photos (Optional, Max 5)</Label>
+                  <Input type="file" accept="image/*" multiple onChange={(e) => { if (e.target.files) setPhotos(Array.from(e.target.files)); }} />
+                </div>
+
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Submit Report"}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+
+        <CardContent>
+          {reports.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center bg-zinc-50 dark:bg-zinc-900/50 rounded-lg border border-dashed">
+              <FileText className="h-10 w-10 text-zinc-300 mb-3" />
+              <h3 className="font-semibold text-lg">No Daily Reports Found</h3>
+              <p className="text-muted-foreground text-sm">Submit the first site log using the button above.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reports.map((report: any) => (
+                <div key={report.id} className="p-4 border rounded-lg bg-white dark:bg-zinc-950 shadow-sm flex flex-col md:flex-row md:items-start justify-between gap-4">
+                  
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        <Calendar className="w-3 h-3 mr-1"/> {new Date(report.reportDate).toLocaleDateString()}
+                      </Badge>
+                      <Badge variant="outline" className="text-zinc-600">
+                        <CloudSun className="w-3 h-3 mr-1" /> {report.weatherCondition}
+                      </Badge>
+                    </div>
+                    
+                    <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap">{report.summary}</p>
+                    
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground pt-2">
+                      <span className="flex items-center"><Users className="w-3 h-3 mr-1"/> {report.workersPresent} / {report.totalWorkers} Workers Present</span>
+                      <span>Submitted by: {report.submitter?.name}</span>
+                    </div>
+                  </div>
+
+                  {report.photoUrls?.length > 0 && (
+                    <div className="flex-shrink-0">
+                      <Button variant="outline" size="sm" onClick={() => openPhotoViewer(report.photoUrls)}>
+                        <ImageIcon className="h-4 w-4 mr-2" /> View {report.photoUrls.length} Photos
+                      </Button>
+                    </div>
+                  )}
+
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* PHOTO VIEWER MODAL */}
+      <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Daily Progress Photos</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 max-h-[60vh] overflow-y-auto p-2">
+            {currentPhotos.map((url, index) => (
+              <div key={index} className="relative aspect-video rounded-md overflow-hidden border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`Progress ${index + 1}`} className="object-cover w-full h-full" />
               </div>
             ))}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
