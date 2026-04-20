@@ -10,9 +10,9 @@ export const AuthService = {
   },
 
   // 🚪 Logout (Clears server-side session)
-  // logout: async () => {
-  //   return await httpClient.post("/auth/logout");
-  // },
+  logout: async () => {
+    return await httpClient.post("/auth/logout", {});
+  },
 
   resendVerificationCode: async (email: string) => {
     return await httpClient.post("/auth/resend-verification", { email });

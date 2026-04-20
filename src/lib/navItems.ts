@@ -34,7 +34,7 @@ export const getNavItems = (role: string | undefined): NavItem[] => {
         { title: "Projects", href: "/admin/projects", icon: FolderKanban },
         { title: "Team & Employees", href: "/admin/team", icon: Users },
         { title: "Incidents", href: "/admin/incidents", icon: ShieldAlert },
-        { title: "Billing & Plan", href: "/admin/billing", icon: CreditCard },
+        { title: "Billing & Plan", href: "/admin/settings/billing", icon: CreditCard },
       ];
     case "MEMBER":
       return [
