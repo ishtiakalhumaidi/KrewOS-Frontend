@@ -1,7 +1,6 @@
 import { httpClient } from "@/lib/axios/httpClient";
 
 export const IncidentService = {
-  // Matches: GET /project/:projectId
   getProjectIncidents: async (projectId: string) => {
     return await httpClient.get(`/incidents/project/${projectId}`);
   },

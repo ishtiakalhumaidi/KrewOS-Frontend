@@ -17,4 +17,11 @@ export const BillingService = {
   seedPlans: async () => {
     return await httpClient.post("/billing/seed",{});
   },
+  cancelSubscription: async () => {
+    return await httpClient.post("/billing/cancel",{});
+  }
+  ,
+  getPlatformHistory: async (params: any) => {
+    return await httpClient.get("/billing/platform-history", { params });
+  }
 };

@@ -220,7 +220,7 @@ export default function WorkerSitePortalPage() {
                 className="w-full justify-start h-12"
                 asChild
               >
-                <Link href="/member/incidents">
+                <Link href="/member/report-incident">
                   <ShieldAlert className="mr-2 h-4 w-4 text-orange-600" />{" "}
                   Report Incident
                 </Link>
