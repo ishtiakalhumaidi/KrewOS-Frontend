@@ -8,9 +8,12 @@ import { AuthService } from "@/services/auth.services";
 export default function DashboardNavbar() {
   const queryClient = useQueryClient();
 
-  const logoutMutation = useMutation({
+const logoutMutation = useMutation({
     mutationFn: AuthService.logout,
     onSettled: () => {
+    
+
+    
       queryClient.clear();
       window.location.href = "/login";
     },
