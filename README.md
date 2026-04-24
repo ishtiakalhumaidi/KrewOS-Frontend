@@ -1,6 +1,4 @@
-Here is a fully detailed, production-ready `README.md` for your KrewOS Frontend repository. You can copy and paste this directly into your project.
 
-```markdown
 # 🏗️ KrewOS Frontend
 
 Welcome to the frontend repository for **KrewOS**, the ultimate all-in-one operating system for modern construction teams. This application provides tailored experiences for field workers, project managers, company owners, and platform super-admins, all within a blazing-fast, strictly-typed Next.js architecture.
