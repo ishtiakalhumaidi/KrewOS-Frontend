@@ -57,9 +57,17 @@ export default function WorkerSitePortalPage() {
       toast.success("Successfully clocked into site!");
       queryClient.invalidateQueries({ queryKey: ["my-attendance", projectId] });
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to clock in.");
-    },
+      onError: (error: any) => {
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to clock in.");
+  }
+}
   });
 
   // 4. Clock Out Mutation
@@ -71,8 +79,16 @@ export default function WorkerSitePortalPage() {
       queryClient.invalidateQueries({ queryKey: ["my-attendance", projectId] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to clock out.");
-    },
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to clock out.");
+  }
+}
   });
 
   const project = projectResponse?.data;

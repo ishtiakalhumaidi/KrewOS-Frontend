@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { MemberService } from "@/services/member.services";
 import { Loader2, User, Building2, ShieldAlert } from "lucide-react";
+import { Logo } from "@/components/shared/Logo";
 
 export default function DashboardSidebar({ role }: { role: string }) {
   const pathname = usePathname();
@@ -29,17 +30,13 @@ export default function DashboardSidebar({ role }: { role: string }) {
       
       {/* 🌟 1. TOP HEADER (KrewOS Platform Branding) */}
       <div className="h-16 flex items-center px-6 border-b border-zinc-200 dark:border-zinc-800">
-        <div className="h-8 w-8 bg-zinc-900 dark:bg-zinc-100 rounded-lg flex items-center justify-center mr-3 shadow-sm">
-          <span className="text-zinc-50 dark:text-zinc-900 font-bold text-lg">K</span>
-        </div>
-        <span className="text-lg font-bold tracking-tight">KrewOS</span>
+        <Logo/>
       </div>
 
-      {/* 🌟 2. MIDDLE NAVIGATION (Dynamic Links based on Role) */}
+    
       <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {navItems.map((item) => {
-          // 👉 THE FIX: If the link is a root dashboard page, it MUST be an exact match.
-          // Otherwise, it can highlight sub-pages (e.g., /admin/incidents/report highlights Incidents)
+          
           const isRootPath = ["/admin", "/member", "/super-admin"].includes(item.href);
           
           const isActive = isRootPath 

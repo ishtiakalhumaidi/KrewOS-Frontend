@@ -1,19 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Building2, CheckCircle2 } from "lucide-react";
 
-export function Cta() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    if (localStorage.getItem("accessToken")) setIsLoggedIn(true);
-  }, []);
-
+export function Cta({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
     <section className="py-24 bg-blue-600 text-white">
       <div className="max-w-4xl mx-auto px-4 text-center">
@@ -23,9 +14,8 @@ export function Cta() {
           Join modern construction companies using KrewOS to build faster, safer, and smarter.
         </p>
         
-        {/* 👉 DYNAMIC CTA BUTTON */}
-        {!isMounted ? null : isLoggedIn ? (
-          <Link href="/admin">
+        {isLoggedIn ? (
+          <Link href="/dashboard">
             <Button size="lg" className="bg-white text-blue-600 hover:bg-zinc-100 rounded-full h-14 px-10 text-lg font-bold">
               <span>Return to Dashboard</span>
             </Button>

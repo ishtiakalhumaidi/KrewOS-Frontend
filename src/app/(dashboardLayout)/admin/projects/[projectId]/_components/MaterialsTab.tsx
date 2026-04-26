@@ -33,9 +33,17 @@ export default function MaterialsTab({ projectId }: { projectId: string }) {
       toast.success("Request status updated successfully.");
       queryClient.invalidateQueries({ queryKey: ["project-materials", projectId] });
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to update status.");
-    }
+     onError: (error: any) => {
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to update status.");
+  }
+}
   });
 
   // Helper to send FormData (since our service expects it for Multer)

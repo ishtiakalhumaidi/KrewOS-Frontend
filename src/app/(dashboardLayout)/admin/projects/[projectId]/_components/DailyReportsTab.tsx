@@ -46,9 +46,17 @@ export default function DailyReportsTab({ projectId }: { projectId: string }) {
       setPhotos([]);
       queryClient.invalidateQueries({ queryKey: ["daily-reports", projectId] });
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to submit report.");
-    }
+     onError: (error: any) => {
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to submit report.");
+  }
+}
   });
 
   const handleSubmit = (e: React.FormEvent) => {

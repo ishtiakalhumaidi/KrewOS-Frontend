@@ -1,20 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ShieldAlert, FolderKanban, Clock } from "lucide-react";
 import CardSwap, { Card } from "@/components/CardSwap";
 
-export function Hero() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-    if (localStorage.getItem("accessToken")) setIsLoggedIn(true);
-  }, []);
-
+export function Hero({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
     <section className="relative overflow-hidden bg-zinc-50 dark:bg-zinc-950 pt-20 pb-24 md:pt-28 md:pb-32">
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
@@ -38,9 +29,9 @@ export function Hero() {
             </p>
             
             <div className="flex flex-col sm:flex-row items-center gap-4 h-12">
-              {/* 👉 DYNAMIC HERO BUTTONS */}
-              {!isMounted ? null : isLoggedIn ? (
-                <Link href="/admin" className="w-full sm:w-auto">
+              {/* 👉 DYNAMIC HERO BUTTONS WITHOUT ISMOUNTED CHECKS */}
+              {isLoggedIn ? (
+                <Link href="/dashboard" className="w-full sm:w-auto">
                   <Button size="lg" className="w-full rounded-full bg-blue-600 hover:bg-blue-700 text-white text-base h-12 px-8 shadow-lg shadow-blue-600/20">
                     <span>Go to your Workspace</span> <ArrowRight className="ml-2 w-4 h-4" />
                   </Button>

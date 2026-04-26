@@ -54,9 +54,17 @@ export default function MyMaterialsPage() {
       setFormData({ projectId: "", itemName: "", quantity: "", unit: "pieces", notes: "" });
       queryClient.invalidateQueries({ queryKey: ["my-materials"] });
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to submit request.");
-    }
+      onError: (error: any) => {
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to submit request.");
+  }
+}
   });
 
   // Mark as Delivered Mutation
@@ -69,8 +77,16 @@ export default function MyMaterialsPage() {
       queryClient.invalidateQueries({ queryKey: ["my-materials"] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to log delivery.");
-    }
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to log delivery.");
+  }
+}
   });
 
   const handleRequestSubmit = (e: React.FormEvent) => {

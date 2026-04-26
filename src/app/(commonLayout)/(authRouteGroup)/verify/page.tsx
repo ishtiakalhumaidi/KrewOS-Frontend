@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { AuthService } from "@/services/auth.services";
@@ -20,7 +20,8 @@ import {
 import { Loader2, MailCheck, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
-export default function VerifyEmailPage() {
+// 👉 1. Rename the main function to a Form component
+function VerifyEmailForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailParam = searchParams.get("email") || "";
@@ -41,14 +42,23 @@ export default function VerifyEmailPage() {
       );
     },
   });
+
   const resendMutation = useMutation({
     mutationFn: (email: string) => AuthService.resendVerificationCode(email),
     onSuccess: () => {
       toast.success("New code sent! Please check your inbox.");
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to resend code.");
-    }
+     onError: (error: any) => {
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to resend code.");
+  }
+}
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -137,5 +147,14 @@ export default function VerifyEmailPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+// 👉 2. Create a new default export that wraps the form in <Suspense>
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center min-h-[70vh] items-center"><Loader2 className="animate-spin h-8 w-8 text-zinc-500" /></div>}>
+      <VerifyEmailForm />
+    </Suspense>
   );
 }

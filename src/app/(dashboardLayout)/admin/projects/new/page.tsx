@@ -14,7 +14,7 @@ import { createProjectSchema } from "@/zod/project.validation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea"; // (Run: npx shadcn@latest add textarea)
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -22,30 +22,40 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { toast } from "sonner";
 
 export default function CreateProjectPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  // 1. React Query Mutation to save the project
+ // 1. React Query Mutation to save the project
   const createMutation = useMutation({
     mutationFn: ProjectService.createProject,
-    onSuccess: (res) => {
-      if (res.success) {
-        queryClient.invalidateQueries({
-          queryKey: ["projects"],
-        });
+    
+   
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["projects"],
+      });
 
-        // Redirect back to the projects table
-        router.push("/admin/projects");
-      }
+      toast.success("Project created successfully!");
+      
+      router.push("/admin/projects");
     },
+    
     onError: (error: any) => {
-      console.error("Failed to create project:", error);
+      const errors = error?.response?.data?.errorSources;
+
+      if (errors?.length) {
+        toast.error(errors.map((e: any) => e.message).join("\n"));
+      } else {
+        toast.error(
+          error?.response?.data?.message || "Project creation failed"
+        );
+      }
     },
   });
 
-  // 2. TanStack Form Setup
   const form = useForm({
     defaultValues: {
       name: "",
@@ -211,14 +221,7 @@ export default function CreateProjectPage() {
               />
             </div>
 
-            {/* Error Message Display */}
-            {createMutation.isError && (
-              <div className="p-3 text-sm rounded-md bg-destructive/15 text-destructive">
-                {(createMutation.error as any)?.response?.data?.message ||
-                  "Failed to create project. Please try again."}
-              </div>
-            )}
-
+           
             {/* Submit Button */}
             <div className="flex justify-end pt-4">
               <Button type="submit" disabled={createMutation.isPending}>

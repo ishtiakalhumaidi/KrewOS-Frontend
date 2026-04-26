@@ -66,8 +66,18 @@ function AvatarUploadCard({ user }: { user: any }) {
       toast.success("Profile picture updated!");
       queryClient.invalidateQueries({ queryKey: ["my-profile"] });
     },
-    onError: (error: any) =>
-      toast.error(error?.response?.data?.message || "Failed to upload image."),
+      onError: (error: any) => {
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to upload image.");
+  }
+}
+    
   });
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -150,7 +160,6 @@ function PersonalInfoFormCard({ user }: { user: any }) {
     },
   });
 
-  // 👉 Initialize TanStack Form with perfectly loaded default values
   const form = useForm({
     defaultValues: {
       name: user?.name || "",

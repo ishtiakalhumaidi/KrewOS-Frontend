@@ -41,18 +41,36 @@ export default function SuperAdminGlobalSettingsPage() {
       setEditingPlanId(null);
       queryClient.invalidateQueries({ queryKey: ["global-plans"] });
     },
-    onError: () => toast.error("Failed to update plan."),
-  });
+    onError: (error: any) => {
+      const errors = error?.response?.data?.errorSources;
 
-  // 3. Seed Mutation (Merged from plans/page.tsx)
+      if (errors?.length) {
+        errors.forEach((err: any) => {
+          toast.error(err.message);
+        });
+      } else {
+        toast.error(error?.response?.data?.message || "Failed to update plan.");
+      }
+    }
+  });
+    
   const seedMutation = useMutation({
     mutationFn: BillingService.seedPlans,
     onSuccess: () => {
       toast.success("Database seeded with default plans!");
       queryClient.invalidateQueries({ queryKey: ["global-plans"] });
     },
-    onError: (error: any) =>
-      toast.error(error?.response?.data?.message || "Failed to seed plans."),
+     onError: (error: any) => {
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to seed plans.");
+  }
+}
   });
 
   if (isLoading)

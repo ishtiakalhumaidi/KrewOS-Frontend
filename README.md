@@ -7,7 +7,7 @@ Welcome to the frontend repository for **KrewOS**, the ultimate all-in-one opera
 
 ## 🚀 Tech Stack
 
-- **Framework:** [Next.js 14+](https://nextjs.org/) (App Router)
+- **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
 - **Language:** [TypeScript](https://www.typescriptlang.org/)
 - **Styling:** [Tailwind CSS v3/v4](https://tailwindcss.com/)
 - **UI Components:** [Shadcn UI](https://ui.shadcn.com/) + [Radix Primitives](https://www.radix-ui.com/)

@@ -10,8 +10,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, HardHat, Building2, User, Mail, Lock } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, Building2, User, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RegisterPage() {
@@ -30,9 +30,17 @@ export default function RegisterPage() {
       // 👉 Redirect to the verification page and pass the email in the URL!
       router.push(`/verify?email=${encodeURIComponent(formData.email)}`);
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Registration failed. Please try again.");
-    }
+   onError: (error: any) => {
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Registration failed. Please try again.");
+  }
+}
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -44,23 +52,27 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[80vh] px-4">
-      <Card className="w-full max-w-lg shadow-lg border-zinc-200 dark:border-zinc-800">
-        <CardHeader className="space-y-2 text-center pb-6">
-          <div className="flex justify-center mb-2">
-            <div className="h-12 w-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-inner">
-              <HardHat className="h-7 w-7 text-white" />
-            </div>
-          </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">Create your Workspace</CardTitle>
-          <CardDescription>
-            Register your company to start managing projects and teams.
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
+    <div className="flex flex-col space-y-6 w-full sm:w-[400px] mx-auto">
+      {/* 👉 Clean, out-of-box top header */}
+      <div className="flex flex-col space-y-2 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Create your Workspace
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Enter your company details below to get started.
+        </p>
+      </div>
+
+      {/* 👉 Clean White Card Layout */}
+      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
+        <CardContent className="pt-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            
             <div className="space-y-2">
-              <Label className="flex items-center"><Building2 className="w-4 h-4 mr-2 text-muted-foreground"/> Company Name</Label>
+              <Label className="flex items-center text-zinc-700 dark:text-zinc-300">
+                <Building2 className="w-4 h-4 mr-2 text-muted-foreground"/> 
+                Company Name
+              </Label>
               <Input 
                 placeholder="e.g., Apex Construction LLC" 
                 value={formData.companyName}
@@ -68,8 +80,12 @@ export default function RegisterPage() {
                 required
               />
             </div>
+
             <div className="space-y-2">
-              <Label className="flex items-center"><User className="w-4 h-4 mr-2 text-muted-foreground"/> Full Name</Label>
+              <Label className="flex items-center text-zinc-700 dark:text-zinc-300">
+                <User className="w-4 h-4 mr-2 text-muted-foreground"/> 
+                Full Name
+              </Label>
               <Input 
                 placeholder="John Doe" 
                 value={formData.name}
@@ -77,8 +93,12 @@ export default function RegisterPage() {
                 required
               />
             </div>
+
             <div className="space-y-2">
-              <Label className="flex items-center"><Mail className="w-4 h-4 mr-2 text-muted-foreground"/> Work Email</Label>
+              <Label className="flex items-center text-zinc-700 dark:text-zinc-300">
+                <Mail className="w-4 h-4 mr-2 text-muted-foreground"/> 
+                Work Email
+              </Label>
               <Input 
                 type="email" 
                 placeholder="admin@apexconstruction.com" 
@@ -87,8 +107,12 @@ export default function RegisterPage() {
                 required
               />
             </div>
+
             <div className="space-y-2">
-              <Label className="flex items-center"><Lock className="w-4 h-4 mr-2 text-muted-foreground"/> Password</Label>
+              <Label className="flex items-center text-zinc-700 dark:text-zinc-300">
+                <Lock className="w-4 h-4 mr-2 text-muted-foreground"/> 
+                Password
+              </Label>
               <Input 
                 type="password" 
                 placeholder="••••••••" 
@@ -98,21 +122,25 @@ export default function RegisterPage() {
                 minLength={6}
               />
             </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4 pt-4">
-            <Button type="submit" className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-md" disabled={registerMutation.isPending}>
-              {registerMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+
+            <Button 
+              type="submit" 
+              className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white" 
+              disabled={registerMutation.isPending}
+            >
+              {registerMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Register Company
             </Button>
-            <div className="text-center text-sm text-muted-foreground">
-              Already have an account?{" "}
-              <Link href="/login" className="text-blue-600 hover:underline font-medium">
-                Sign in
-              </Link>
-            </div>
-          </CardFooter>
-        </form>
+          </form>
+        </CardContent>
       </Card>
+
+      <div className="text-center text-sm text-muted-foreground">
+        Already have an account?{" "}
+        <Link href="/login" className="text-blue-600 hover:text-blue-700 hover:underline font-medium">
+          Sign in
+        </Link>
+      </div>
     </div>
   );
 }

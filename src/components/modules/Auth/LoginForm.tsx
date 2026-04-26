@@ -16,38 +16,55 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { setCookie } from "@/lib/cookieUtils";
 import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
+import { setAuthCookies } from "@/app/actions/auth";
 
 export default function LoginForm() {
   const router = useRouter();
 
   // 1. React Query Mutation for Login
- const loginMutation = useMutation({
+  const loginMutation = useMutation({
     mutationFn: AuthService.login,
-    onSuccess: (res) => {
+    onSuccess: async (response) => {
+      // 🚀 The response.data contains the JSON you pasted!
+      const authData = response.data?.data || response.data;
+
+      await setAuthCookies({
+        token: authData.token,
+        accessToken: authData.accessToken,
+        refreshToken: authData.refreshToken,
+      });
+
       toast.success("Logged in successfully!");
+
       router.push("/dashboard");
     },
-   onError: (error: any, variables: any) => {
-      const errorMessage = error?.response?.data?.message;
-      if (errorMessage === "Email not verified") {
-        toast.error("Please verify your email before logging in.");
+    onError: (error: any, variables: any) => {
+      const errorMessage = error.response?.data?.message || "";
+
+      if (errorMessage.includes("Email not verified")) {
+        toast.error("Please verify your email first. Redirecting...");
+
     
-        router.push(`/verify?email=${encodeURIComponent(variables.email)}`);
-      } else {
-        toast.error(errorMessage || "Failed to login. Please try again.");
+        router.push(
+          `/verify?email=${encodeURIComponent(variables.email)}`,
+        );
       }
-    }
+    },
   });
 
-  // 2. TanStack Form Setup (NEW API - No adapter needed!)
   const form = useForm({
     defaultValues: {
       email: "",
       password: "",
     },
-    // We pass the validation to the onSubmit directly
+
     onSubmit: async ({ value }) => {
       loginMutation.mutate(value);
+      // await authClient.signIn.email({
+      //   email: value.email,
+      //   password: value.password
+      // });
     },
   });
 

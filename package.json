@@ -4,16 +4,18 @@
   "private": true,
   "scripts": {
     "lint": "eslint",
-    "dev": "bun --bun next dev",
+    "dev": "next dev",
     "build": "bun --bun next build",
     "start": "bun --bun next start"
   },
   "dependencies": {
+    "@radix-ui/react-visually-hidden": "^1.2.4",
     "@tanstack/react-devtools": "^0.10.2",
     "@tanstack/react-form": "^1.29.0",
     "@tanstack/react-form-devtools": "^0.2.21",
     "@tanstack/react-form-nextjs": "^1.29.0",
     "axios": "^1.15.0",
+    "better-auth": "^1.6.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "gsap": "^3.13.0",
@@ -22,6 +24,7 @@
     "jsonwebtoken": "^9.0.3",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^1.8.0",
+    "motion": "^12.38.0",
     "next": "16.2.4",
     "next-themes": "^0.4.6",
     "radix-ui": "^1.4.3",

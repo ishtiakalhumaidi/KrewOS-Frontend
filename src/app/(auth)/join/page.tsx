@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, ShieldCheck, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { setAuthCookies } from "@/app/actions/auth";
 
 function JoinForm() {
   const router = useRouter();
@@ -29,18 +30,34 @@ function JoinForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-const joinMutation = useMutation({
+  const joinMutation = useMutation({
     mutationFn: AuthService.acceptInvite,
-    onSuccess: () => {
-      // 👉 1. Show a beautiful success message
-      toast.success("Account created successfully! Please log in to continue.");
-      
-     
-      router.push("/login");
+    onSuccess: async (response) => {
+      const authData = response.data?.data || response.data;
+
+      await setAuthCookies({
+        token: authData.token,
+        accessToken: authData.accessToken,
+        refreshToken: authData.refreshToken,
+      });
+
+      toast.success("Account created successfully! Redirecting...");
+
+      router.push("/dashboard");
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Link expired or invalid.");
-    }
+      const errors = error?.response?.data?.errorSources;
+
+      if (errors?.length) {
+        errors.forEach((err: any) => {
+          toast.error(err.message);
+        });
+      } else {
+        toast.error(
+          error?.response?.data?.message || "Link expired or invalid.",
+        );
+      }
+    },
   });
 
   const handleSubmit = (e: React.FormEvent) => {

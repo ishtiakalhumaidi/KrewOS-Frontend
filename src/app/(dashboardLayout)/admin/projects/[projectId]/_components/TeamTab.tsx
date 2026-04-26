@@ -40,9 +40,17 @@ export default function TeamTab({ projectId }: { projectId: string }) {
       setSelectedUserId(""); // Reset dropdown
       queryClient.invalidateQueries({ queryKey: ["project-team", projectId] });
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to assign worker.");
-    }
+      onError: (error: any) => {
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to assign worker.");
+  }
+}
   });
 
   // 4. Mutation to kick a member

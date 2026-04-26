@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { HardHat } from "lucide-react";
+import { Logo } from "../shared/Logo";
 
 export function Footer() {
   return (
@@ -10,10 +10,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center gap-2 mb-4">
-              <div className="h-8 w-8 bg-zinc-900 dark:bg-zinc-100 rounded-lg flex items-center justify-center">
-                <HardHat className="text-zinc-50 dark:text-zinc-900 h-5 w-5" />
-              </div>
-              <span className="text-xl font-bold">KrewOS</span>
+              <Logo/>
             </div>
             <p className="text-sm text-muted-foreground">
               The ultimate operating system for modern construction teams. Manage projects, safety, and payroll in one place.

@@ -66,8 +66,16 @@ export default function MyIncidentsPage() {
       queryClient.invalidateQueries({ queryKey: ["my-incidents"] });
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || "Failed to report incident.");
-    }
+  const errors = error?.response?.data?.errorSources;
+
+  if (errors?.length) {
+    errors.forEach((err: any) => {
+      toast.error(err.message);
+    });
+  } else {
+    toast.error(error?.response?.data?.message || "Failed to report incident.");
+  }
+}
   });
 
   const handleSubmit = (e: React.FormEvent) => {

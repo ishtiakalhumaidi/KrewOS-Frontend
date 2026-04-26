@@ -28,13 +28,13 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  return (
+return (
     <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950 overflow-hidden">
-      {/* Pass the server-fetched role directly to the Sidebar */}
       <DashboardSidebar role={userRole} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <DashboardNavbar />
+
+        <DashboardNavbar role={userRole} />
         
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           {children}

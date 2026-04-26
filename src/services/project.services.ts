@@ -3,11 +3,9 @@ import { httpClient } from "@/lib/axios/httpClient";
 
 export const ProjectService = {
   getCompanyProjects: async () => {
+    const response = await httpClient.get("/projects");
 
-
-    const response = await httpClient.get("/projects"); 
-
-    return response.data; 
+    return response.data;
   },
   createProject: async (data: any) => {
     const response = await httpClient.post("/projects", data);
@@ -16,5 +14,9 @@ export const ProjectService = {
   getProjectById: async (projectId: string) => {
     const response = await httpClient.get(`/projects/${projectId}`);
     return response.data;
-  }
+  },
+  updateProject: async (projectId: string, data: any) => {
+    const response = await httpClient.patch(`/projects/${projectId}`, data);
+    return response.data;
+  },
 };
