@@ -5,6 +5,13 @@ Welcome to the frontend repository for **KrewOS**, the ultimate all-in-one opera
 
 ---
 
+## 🔗 Live & Backend Links
+
+- 🌐 **Live App:** https://krew-os.vercel.app/
+- ⚙️ **Backend Repository:** https://github.com/ishtiakalhumaidi/krewOS-Backend.git
+  
+---
+
 ## 🚀 Tech Stack
 
 - **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
