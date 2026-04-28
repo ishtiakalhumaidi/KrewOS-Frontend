@@ -4,7 +4,7 @@ export const CompanyService = {
   getAllCompanies: async () => {
     return await httpClient.get("/companies/all");
   },
-  toggleCompanyStatus: async (companyId: string) => {
-    return await httpClient.patch(`/companies/${companyId}/toggle-status`,{});
+  changeCompanyStatus: async ({ companyId, status }: { companyId: string, status: string }) => {
+    return await httpClient.patch(`/companies/${companyId}/status`, { status });
   }
 };

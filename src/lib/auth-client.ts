@@ -2,7 +2,7 @@ import { createAuthClient } from "better-auth/react";
 
 export const authClient = createAuthClient({
  
-  baseURL:"https://krew-os.vercel.app",
+  baseURL:process.env.NEXT_PUBLIC_APP_URL,
   fetchOptions: { credentials: "include" },
 
   // plugins: [

@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
       {
         // Explicitly map auth requests
         source: "/api/auth/:path*",
-        destination: "https://krew-os-backend.vercel.app/api/auth/:path*",
+        destination: process.env.NEXT_PUBLIC_BACKEND_URL + "/api/auth/:path*",
       },
       {
         // Explicitly map v1 API requests

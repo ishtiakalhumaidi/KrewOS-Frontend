@@ -4,86 +4,54 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MemberService } from "@/services/member.services";
 import { BillingService } from "@/services/billing.services";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Loader2,
-  CheckCircle2,
-  Zap,
-  Building2,
-  CalendarClock,
-  ReceiptText,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-} from "lucide-react";
+import { Loader2, CheckCircle2, Zap, Building2, CalendarClock, ReceiptText, Sparkles, ArrowRight, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
-const PLAN_WEIGHTS: Record<string, number> = {
-  FREE: 0,
-  PRO: 1,
-  ENTERPRISE: 2,
-};
+const PLAN_WEIGHTS: Record<string, number> = { FREE: 0, PRO: 1, ENTERPRISE: 2 };
 
+// Premium gradient dictionaries mapping to KrewOS theme
 const PLAN_GRADIENTS: Record<string, string> = {
-  FREE: "from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50",
-  PRO: "from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/40",
-  ENTERPRISE: "from-violet-50 to-purple-50 dark:from-violet-950/40 dark:to-purple-950/40",
+  FREE: "bg-slate-50 dark:bg-zinc-900/50",
+  PRO: "bg-blue-50/50 dark:bg-blue-900/10",
+  ENTERPRISE: "bg-indigo-50/50 dark:bg-indigo-900/10",
 };
-
 const PLAN_ACCENT: Record<string, string> = {
-  FREE: "text-slate-600 dark:text-slate-400",
-  PRO: "text-indigo-600 dark:text-indigo-400",
-  ENTERPRISE: "text-violet-600 dark:text-violet-400",
+  FREE: "text-zinc-600 dark:text-zinc-400",
+  PRO: "text-blue-600 dark:text-blue-400",
+  ENTERPRISE: "text-indigo-600 dark:text-indigo-400",
 };
-
 const PLAN_BORDER: Record<string, string> = {
-  FREE: "border-slate-200 dark:border-slate-700",
-  PRO: "border-indigo-300 dark:border-indigo-700 ring-1 ring-indigo-300 dark:ring-indigo-700",
-  ENTERPRISE: "border-violet-300 dark:border-violet-700",
+  FREE: "border-slate-200 dark:border-zinc-800",
+  PRO: "border-blue-200 dark:border-blue-900/50",
+  ENTERPRISE: "border-indigo-200 dark:border-indigo-900/50",
 };
 
 export default function BillingSettingsPage() {
-  const { data: companyResponse, isLoading: isCompanyLoading } = useQuery({
-    queryKey: ["company-settings"],
-    queryFn: MemberService.getCompanySettings,
-  });
+  const queryClient = useQueryClient();
 
-  const { data: plansResponse, isLoading: isPlansLoading } = useQuery({
-    queryKey: ["billing-plans"],
-    queryFn: BillingService.getPlans,
+  const { data: companyResponse, isLoading: isCompanyLoading } = useQuery({ 
+    queryKey: ["company-settings"], 
+    queryFn: MemberService.getCompanySettings 
+  });
+  
+  const { data: plansResponse, isLoading: isPlansLoading } = useQuery({ 
+    queryKey: ["billing-plans"], 
+    queryFn: BillingService.getPlans 
   });
 
   const checkoutMutation = useMutation({
     mutationFn: BillingService.createCheckoutSession,
     onSuccess: (res) => {
-      const checkoutUrl = res?.data?.url;
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl;
-      } else {
-        toast.error("Failed to generate checkout link.");
-      }
+      if (res?.data?.url) window.location.href = res.data.url;
+      else toast.error("Failed to generate checkout link.");
     },
-    onError: (error: any) => {
-      const errors = error?.response?.data?.errorSources;
-      if (errors?.length) {
-        errors.forEach((err: any) => toast.error(err.message));
-      } else {
-        toast.error(error?.response?.data?.message || "Something went wrong.");
-      }
-    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || "Something went wrong."),
   });
-
-  const queryClient = useQueryClient();
 
   const cancelMutation = useMutation({
     mutationFn: BillingService.cancelSubscription,
@@ -97,100 +65,78 @@ export default function BillingSettingsPage() {
   const company = companyResponse?.data;
   const currentPlan = company?.subscription?.plan || "FREE";
   const currentPlanWeight = PLAN_WEIGHTS[currentPlan] || 0;
-  const activePlans = plansResponse?.data || [];
+  
+  // Sort plans by price
+  const activePlans = (plansResponse?.data || []).sort((a: any, b: any) => Number(a.price) - Number(b.price));
 
   const handleUpgrade = (planTier: string) => {
     checkoutMutation.mutate(planTier);
   };
 
   if (isCompanyLoading || isPlansLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="animate-spin text-indigo-500 w-8 h-8" />
-          <p className="text-sm text-muted-foreground animate-pulse">Loading your plan details…</p>
-        </div>
-      </div>
-    );
+    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="animate-spin text-blue-600 w-10 h-10" /></div>;
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-10 pb-12">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="max-w-5xl mx-auto space-y-10 pb-12 pt-4">
 
       {/* ── Page Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 mb-1">
-            <ShieldCheck className="w-5 h-5 text-indigo-500" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-indigo-500">
-              Billing & Plans
-            </span>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
+        <div className="space-y-3">
+          <div className="inline-flex items-center rounded-full border border-blue-200/80 bg-blue-50 dark:border-blue-800/60 dark:bg-blue-900/30 px-4 py-1.5 text-sm font-bold tracking-wide text-blue-700 dark:text-blue-400 shadow-sm uppercase">
+            <ShieldCheck className="w-4 h-4 mr-2" /> Billing & Plans
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Manage your subscription
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+            Manage Subscription
           </h1>
-          <p className="text-muted-foreground text-sm max-w-md">
-            Upgrade your workspace, review limits, and control your billing cycle all in one place.
+          <p className="text-zinc-600 dark:text-zinc-400 text-lg font-medium max-w-md">
+            Upgrade your workspace, review limits, and control your billing cycle.
           </p>
         </div>
 
-        <Link href="/admin/settings/billing/history">
-          <Button
-            variant="outline"
-            className="group border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 shadow-sm transition-all duration-200 hover:shadow-md"
-          >
-            <ReceiptText className="w-4 h-4 mr-2 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+        <Link href="/admin/settings/billing/history" className="shrink-0">
+          <Button className="w-full sm:w-auto h-12 px-6 rounded-xl font-bold bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-zinc-900 dark:text-white shadow-sm hover:bg-slate-50 dark:hover:bg-zinc-800 active:scale-95 transition-all group">
+            <ReceiptText className="w-4 h-4 mr-2 text-zinc-400 group-hover:text-blue-600 transition-colors" />
             Payment History
-            <ArrowRight className="w-3 h-3 ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-200" />
+            <ArrowRight className="w-4 h-4 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
           </Button>
         </Link>
       </div>
 
       {/* ── Current Plan Banner ── */}
-      <div className={`rounded-2xl bg-gradient-to-br ${PLAN_GRADIENTS[currentPlan]} border ${PLAN_BORDER[currentPlan]} p-6 shadow-sm transition-all duration-300`}>
+      <div className={`rounded-[2.5rem] ${PLAN_GRADIENTS[currentPlan]} border ${PLAN_BORDER[currentPlan]} p-8 shadow-sm transition-all duration-300`}>
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Active Plan
-            </p>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h2 className={`text-2xl font-extrabold uppercase tracking-tight ${PLAN_ACCENT[currentPlan]}`}>
+          <div className="space-y-3">
+            <p className="text-xs font-extrabold uppercase tracking-widest text-zinc-500">Active Workspace Plan</p>
+            <div className="flex items-center gap-4 flex-wrap">
+              <h2 className={`text-3xl md:text-4xl font-extrabold uppercase tracking-tight ${PLAN_ACCENT[currentPlan]}`}>
                 {currentPlan}
               </h2>
               {currentPlan !== "FREE" && !company?.subscription?.cancelAtPeriodEnd && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-xs font-semibold px-3 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Active
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Active
                 </span>
               )}
               {company?.subscription?.cancelAtPeriodEnd && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 text-xs font-semibold px-3 py-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                  Cancels Soon
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 text-xs font-bold px-3 py-1.5 uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-red-500" /> Cancels Soon
                 </span>
               )}
             </div>
 
             {currentPlan !== "FREE" && company?.subscription?.currentPeriodEnd && (
-              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <CalendarClock className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                {company.subscription.cancelAtPeriodEnd
-                  ? "Access ends on"
-                  : "Next billing on"}{" "}
-                <strong className="text-foreground font-semibold">
-                  {new Date(company.subscription.currentPeriodEnd).toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+              <p className="text-base text-zinc-600 dark:text-zinc-400 font-medium flex items-center gap-2">
+                <CalendarClock className="w-5 h-5 text-zinc-400" />
+                {company.subscription.cancelAtPeriodEnd ? "Access ends on" : "Next billing on"}{" "}
+                <strong className="text-zinc-900 dark:text-white">
+                  {new Date(company.subscription.currentPeriodEnd).toLocaleDateString()}
                 </strong>
               </p>
             )}
 
             {currentPlan === "FREE" && (
-              <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                Upgrade below to unlock higher limits
+              <p className="text-base text-zinc-600 dark:text-zinc-400 font-medium flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-500" /> Upgrade below to unlock higher limits and premium features.
               </p>
             )}
           </div>
@@ -199,31 +145,21 @@ export default function BillingSettingsPage() {
             {currentPlan !== "FREE" && !company?.subscription?.cancelAtPeriodEnd && (
               <Button
                 variant="outline"
-                size="sm"
                 disabled={cancelMutation.isPending}
-                className="border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 hover:border-red-300 transition-all duration-200"
+                className="h-12 px-6 rounded-xl font-bold border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all active:scale-95"
                 onClick={() => {
                   toast("Cancel subscription?", {
                     description: "You will keep access until the end of the billing cycle.",
-                    action: {
-                      label: "Yes, Cancel",
-                      onClick: () => cancelMutation.mutate(),
-                    },
-                    cancel: {
-                      label: "Keep Plan",
-                      onClick: () => {},
-                    },
+                    action: { label: "Yes, Cancel", onClick: () => cancelMutation.mutate() },
+                    cancel: { label: "Keep Plan", onClick: () => {} },
                   });
                 }}
               >
-                {cancelMutation.isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
-                ) : null}
-                Cancel Subscription
+                {cancelMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null} Cancel Subscription
               </Button>
             )}
             {company?.subscription?.cancelAtPeriodEnd && (
-              <p className="text-sm font-medium text-red-500 dark:text-red-400">
+              <p className="text-sm font-bold text-red-500 dark:text-red-400">
                 Cancellation scheduled.
               </p>
             )}
@@ -233,132 +169,75 @@ export default function BillingSettingsPage() {
 
       {/* ── Section Label ── */}
       <div className="flex items-center gap-4">
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground whitespace-nowrap">
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-zinc-800 to-transparent" />
+        <span className="text-xs font-bold uppercase tracking-widest text-zinc-400">
           Available Plans
         </span>
-        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-slate-700 to-transparent" />
+        <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-zinc-800 to-transparent" />
       </div>
 
       {/* ── Pricing Cards ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {activePlans.map((plan: any) => {
           const isCurrentPlan = currentPlan === plan.tier;
-          const planWeight = PLAN_WEIGHTS[plan.tier] || 0;
-
-          if (planWeight < currentPlanWeight) return null;
-
-          const isEnterprise = plan.tier === "ENTERPRISE";
+          
+          // Only show plans that are equal to or higher than the current plan's weight
+          if (PLAN_WEIGHTS[plan.tier] < currentPlanWeight) return null;
+          
           const isPro = plan.tier === "PRO";
 
           return (
-            <Card
-              key={plan.id}
-              className={`
-                relative flex flex-col overflow-hidden border transition-all duration-300
-                hover:shadow-lg hover:-translate-y-0.5
-                ${isCurrentPlan
-                  ? "border-indigo-400 dark:border-indigo-600 shadow-md shadow-indigo-100 dark:shadow-indigo-950/50"
-                  : isEnterprise
-                  ? "border-violet-200 dark:border-violet-800 hover:border-violet-300 dark:hover:border-violet-700"
-                  : "border-slate-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-800"
-                }
-              `}
-            >
-              {/* Top accent bar */}
-              <div
-                className={`h-1 w-full ${
-                  isCurrentPlan
-                    ? "bg-gradient-to-r from-indigo-400 to-blue-500"
-                    : isEnterprise
-                    ? "bg-gradient-to-r from-violet-400 to-purple-500"
-                    : isPro
-                    ? "bg-gradient-to-r from-indigo-300 to-blue-400"
-                    : "bg-slate-200 dark:bg-slate-700"
-                }`}
-              />
-
-              {/* Current Plan badge */}
-              {isCurrentPlan && (
-                <div className="absolute top-4 right-4">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300 text-xs font-semibold px-2.5 py-1">
-                    <CheckCircle2 className="w-3 h-3" />
-                    Current
-                  </span>
+            <Card key={plan.id} className={cn("flex flex-col overflow-hidden rounded-[2.5rem] border shadow-sm transition-all duration-300 hover:shadow-xl", 
+              isCurrentPlan ? "border-blue-400 dark:border-blue-600 ring-2 ring-blue-500/20" : "border-slate-200 dark:border-zinc-800"
+            )}>
+              
+              <CardHeader className="p-8 pb-4 relative">
+                {isCurrentPlan && (
+                  <div className="absolute top-6 right-6">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 text-xs font-bold px-3 py-1 uppercase tracking-wider">
+                      <CheckCircle2 className="w-3 h-3" /> Current
+                    </span>
+                  </div>
+                )}
+                
+                <div className="mb-4">
+                  <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center", 
+                    isPro ? "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400" : "bg-slate-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400"
+                  )}>
+                    {isPro ? <Zap className="h-7 w-7" /> : <Building2 className="h-7 w-7" />}
+                  </div>
                 </div>
-              )}
-
-              <CardHeader className="pb-4">
-                <div className="mb-3">
-                  {isEnterprise ? (
-                    <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center">
-                      <Building2 className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                    </div>
-                  ) : (
-                    <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
-                      <Zap className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                  )}
-                </div>
-                <CardTitle className="text-lg font-bold uppercase tracking-wide text-foreground">
-                  {plan.name}
-                </CardTitle>
-                <CardDescription className="text-sm leading-relaxed min-h-[2.5rem]">
-                  {plan.description}
-                </CardDescription>
+                <CardTitle className="text-2xl font-extrabold uppercase tracking-tight text-zinc-900 dark:text-white">{plan.name}</CardTitle>
+                <CardDescription className="text-base font-medium mt-2">{plan.description}</CardDescription>
               </CardHeader>
 
-              <CardContent className="flex-1 space-y-6">
-                {/* Price */}
-                <div className="flex items-end gap-1">
-                  <span className="text-4xl font-extrabold tracking-tight text-foreground">
-                    ${plan.price}
-                  </span>
-                  <span className="text-muted-foreground text-sm mb-1.5">
-                    /{plan.interval}
-                  </span>
+              <CardContent className="flex-1 space-y-8 p-8 pt-2">
+                <div className="flex items-baseline gap-1 pb-6 border-b border-slate-100 dark:border-zinc-800">
+                  <span className="text-5xl font-extrabold tracking-tight text-zinc-900 dark:text-white">${plan.price}</span>
+                  <span className="text-zinc-500 dark:text-zinc-400 font-medium text-lg">/{plan.interval.replace("per ", "")}</span>
                 </div>
-
-                {/* Divider */}
-                <div className="h-px bg-slate-100 dark:bg-slate-800" />
-
-                {/* Features */}
-                <ul className="space-y-2.5">
+                <ul className="space-y-4">
                   {plan.features.map((feature: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2.5 text-sm text-slate-600 dark:text-slate-400">
-                      <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-500 flex-shrink-0" />
+                    <li key={i} className="flex items-start gap-3 text-base font-medium text-zinc-700 dark:text-zinc-300">
+                      <CheckCircle2 className="h-5 w-5 mt-0.5 text-blue-500 shrink-0" strokeWidth={2.5} />
                       <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
               </CardContent>
 
-              <CardFooter className="pt-4">
+              <CardFooter className="p-8 pt-0">
                 {plan.tier !== "FREE" && (
                   <Button
-                    className={`
-                      w-full font-semibold transition-all duration-200 group
-                      ${isCurrentPlan
-                        ? "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700"
-                        : isEnterprise
-                        ? "bg-violet-600 hover:bg-violet-700 text-white shadow-sm shadow-violet-200 dark:shadow-violet-950/50"
-                        : "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-200 dark:shadow-indigo-950/50"
-                      }
-                    `}
                     disabled={isCurrentPlan || checkoutMutation.isPending}
                     onClick={() => handleUpgrade(plan.tier)}
-                  >
-                    {checkoutMutation.isPending && checkoutMutation.variables === plan.tier ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : null}
-                    {isCurrentPlan ? (
-                      "Manage in Stripe"
-                    ) : (
-                      <span className="flex items-center gap-2">
-                        Upgrade to {plan.name}
-                        <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                      </span>
+                    className={cn("w-full h-14 rounded-2xl text-base font-bold transition-all active:scale-95", 
+                      isCurrentPlan 
+                        ? "bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700" 
+                        : "bg-blue-600 hover:bg-blue-700 text-white shadow-[0_8px_20px_-6px_rgba(37,99,235,0.5)] active:shadow-none hover:-translate-y-0.5"
                     )}
+                  >
+                    {checkoutMutation.isPending && checkoutMutation.variables === plan.tier ? <Loader2 className="h-5 w-5 animate-spin" /> : isCurrentPlan ? "Manage in Stripe" : "Upgrade Plan"}
                   </Button>
                 )}
               </CardFooter>
@@ -366,6 +245,6 @@ export default function BillingSettingsPage() {
           );
         })}
       </div>
-    </div>
+    </motion.div>
   );
 }

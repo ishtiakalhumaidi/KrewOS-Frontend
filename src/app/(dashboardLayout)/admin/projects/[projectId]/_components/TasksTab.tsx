@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TaskService } from "@/services/task.services";
-import { ProjectMemberService } from "@/services/projectMember.services"; // 👉 Added to fetch the team!
+import { ProjectMemberService } from "@/services/projectMember.services";
 import { TaskStatus, TaskPriority } from "@/types/enums.types";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,349 +13,210 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, MoreHorizontal, User, UserMinus } from "lucide-react";
+import { Loader2, Plus, MoreHorizontal, User, UserMinus, Calendar } from "lucide-react";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogDescription,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+
+const STATUSES = Object.values(TaskStatus);
 
 export default function TasksTab({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Form State
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<string>(TaskPriority.MEDIUM);
-  const [assignedTo, setAssignedTo] = useState<string>("unassigned"); // 👉 New Assignee State
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState<string>(TaskPriority.MEDIUM);
+  const [newTaskAssignee, setNewTaskAssignee] = useState<string>("UNASSIGNED");
+  const [newTaskDueDate, setNewTaskDueDate] = useState<string>("");
 
-  // 1. Fetch Tasks
-  const { data: tasksResponse, isLoading: isTasksLoading } = useQuery({
-    queryKey: ["project-tasks", projectId],
+  const { data: response, isLoading } = useQuery({
+    queryKey: ["tasks", projectId],
     queryFn: () => TaskService.getProjectTasks(projectId),
-    enabled: !!projectId,
   });
 
-  // 2. Fetch Project Team (so we can assign tasks to them!)
   const { data: teamResponse } = useQuery({
     queryKey: ["project-team", projectId],
     queryFn: () => ProjectMemberService.getProjectMembers(projectId),
-    enabled: !!projectId,
   });
 
-  // Mutations
   const createMutation = useMutation({
     mutationFn: TaskService.createTask,
     onSuccess: () => {
-      toast.success("Task created and assigned!");
-      queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] });
+      toast.success("Task created successfully!");
       setIsModalOpen(false);
-      setTitle("");
-      setDescription("");
-      setPriority(TaskPriority.MEDIUM);
-      setAssignedTo("unassigned");
-    },
-    onError: (error: any) => {
-      const errors = error?.response?.data?.errorSources;
-
-      if (errors?.length) {
-        errors.forEach((err: any) => {
-          toast.error(err.message);
-        });
-      } else {
-        toast.error(
-          error?.response?.data?.message ||
-            "Only Project/Site Managers can create tasks.",
-        );
-      }
+      setNewTaskTitle("");
+      setNewTaskDescription("");
+      setNewTaskPriority(TaskPriority.MEDIUM);
+      setNewTaskAssignee("UNASSIGNED");
+      setNewTaskDueDate(""); 
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
     },
   });
 
-  const statusMutation = useMutation({
-    mutationFn: TaskService.updateTask,
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] }),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: TaskService.deleteTask,
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data: FormData }) => TaskService.updateTask({ taskId, data }),
     onSuccess: () => {
-      toast.success("Task deleted.");
-      queryClient.invalidateQueries({ queryKey: ["project-tasks", projectId] });
-    },
-    onError: (error: any) => {
-      toast.error(
-        error?.response?.data?.message ||
-          "Only Project/Site Managers can delete tasks.",
-      );
+      toast.success("Task status updated!");
+      queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
     },
   });
 
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title) return;
-
-    const payload: any = { projectId, title, description, priority };
-    // 👉 Only attach 'assignedTo' if a specific user was selected
-    if (assignedTo && assignedTo !== "unassigned") {
-      payload.assignedTo = assignedTo;
-    }
-
+    if (!newTaskTitle) return;
+    const payload: any = { title: newTaskTitle, description: newTaskDescription, projectId, priority: newTaskPriority };
+    if (newTaskAssignee !== "UNASSIGNED") payload.assignedTo = newTaskAssignee;
+    if (newTaskDueDate) payload.dueDate = new Date(newTaskDueDate).toISOString();
     createMutation.mutate(payload);
   };
 
-  const tasks = tasksResponse?.data?.data || tasksResponse?.data || [];
-  const teamMembers = teamResponse?.data || [];
+  const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
+    const fd = new FormData();
+    fd.append("projectId", projectId);
+    fd.append("status", newStatus);
+    updateStatusMutation.mutate({ taskId, data: fd });
+  };
 
-  // Group tasks by status for the Kanban board
-  const columns = [
-    {
-      id: TaskStatus.TODO,
-      label: "To Do",
-      color: "bg-zinc-100 dark:bg-zinc-800",
-    },
-    {
-      id: TaskStatus.IN_PROGRESS,
-      label: "In Progress",
-      color: "bg-blue-50 dark:bg-blue-900/20",
-    },
-    {
-      id: TaskStatus.IN_REVIEW,
-      label: "In Review",
-      color: "bg-amber-50 dark:bg-amber-900/20",
-    },
-    {
-      id: TaskStatus.DONE,
-      label: "Done",
-      color: "bg-green-50 dark:bg-green-900/20",
-    },
-  ];
+  const tasks = response?.data?.data || response?.data || [];
+  const team = teamResponse?.data || [];
 
-  if (isTasksLoading) {
-    return (
-      <div className="flex h-40 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const groupedTasks = {
+    [TaskStatus.TODO]: tasks.filter((t: any) => t.status === TaskStatus.TODO),
+    [TaskStatus.IN_PROGRESS]: tasks.filter((t: any) => t.status === TaskStatus.IN_PROGRESS),
+    [TaskStatus.IN_REVIEW]: tasks.filter((t: any) => t.status === TaskStatus.IN_REVIEW),
+    [TaskStatus.DONE]: tasks.filter((t: any) => t.status === TaskStatus.DONE),
+  };
+
+  if (isLoading) return <div className="flex min-h-[40vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-zinc-900 p-8 rounded-[2rem] border border-slate-200 dark:border-zinc-800 shadow-sm">
         <div>
-          <h2 className="text-xl font-bold tracking-tight">Task Board</h2>
-          <p className="text-muted-foreground text-sm">
-            Manage, assign, and track project activities.
+          <h3 className="text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">Project Tasks</h3>
+          <p className="text-zinc-600 dark:text-zinc-400 mt-1 font-medium">
+            Manage and assign duties for this specific site.
           </p>
         </div>
 
-        {/* CREATE TASK MODAL */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
           <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="h-4 w-4 mr-2" /> New Task
+            <Button className="h-12 px-6 rounded-xl font-bold bg-zinc-900 hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 shadow-md transition-all active:scale-95">
+              <Plus className="h-5 w-5 mr-2" /> Create Task
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[500px] p-8 rounded-[2rem]">
             <DialogHeader>
-              <DialogTitle>Create & Assign Task</DialogTitle>
-              <DialogDescription>
-                Only Site Managers and Project Managers can assign tasks.
-              </DialogDescription>
+              <DialogTitle className="text-xl font-bold">Create New Task</DialogTitle>
+              <DialogDescription>Assign a new duty to a team member on this project.</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateTask} className="space-y-4">
+            <form onSubmit={handleCreateTask} className="space-y-5 pt-4">
               <div className="space-y-2">
-                <Label>Task Title *</Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Pour concrete foundation"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Task details..."
-                />
+                <Label className="font-bold">Task Title *</Label>
+                <Input className="h-12 rounded-xl bg-slate-50 dark:bg-zinc-950" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} required />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Priority</Label>
-                  <Select value={priority} onValueChange={setPriority}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
+                  <Label className="font-bold">Priority</Label>
+                  <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
+                    <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-zinc-950"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {Object.values(TaskPriority).map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value={TaskPriority.LOW}>Low</SelectItem>
+                      <SelectItem value={TaskPriority.MEDIUM}>Medium</SelectItem>
+                      <SelectItem value={TaskPriority.HIGH}>High</SelectItem>
+                      <SelectItem value={TaskPriority.URGENT}>Urgent</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
-                {/* 👉 NEW: ASSIGNEE DROPDOWN */}
                 <div className="space-y-2">
-                  <Label>Assign To</Label>
-                  <Select value={assignedTo} onValueChange={setAssignedTo}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select worker..." />
-                    </SelectTrigger>
+                  <Label className="font-bold">Assignee</Label>
+                  <Select value={newTaskAssignee} onValueChange={setNewTaskAssignee}>
+                    <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-zinc-950"><SelectValue placeholder="Assign to..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="unassigned">
-                        Leave Unassigned
-                      </SelectItem>
-                      {teamMembers.map((member: any) => (
-                        <SelectItem key={member.user.id} value={member.user.id}>
-                          {member.user.name} ({member.role.replace("_", " ")})
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="UNASSIGNED" className="italic">Leave Unassigned</SelectItem>
+                      {team.map((m: any) => (<SelectItem key={m.userId} value={m.userId}>{m.user?.name}</SelectItem>))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div className="flex justify-end pt-2">
-                <Button
-                  type="submit"
-                  disabled={createMutation.isPending || !title}
-                >
-                  {createMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    "Save Task"
-                  )}
-                </Button>
+              <div className="space-y-2">
+                <Label className="font-bold">Deadline / Due Date (Optional)</Label>
+                <Input type="date" className="h-12 rounded-xl bg-slate-50 dark:bg-zinc-950" value={newTaskDueDate} onChange={(e) => setNewTaskDueDate(e.target.value)} />
               </div>
+
+              <div className="space-y-2">
+                <Label className="font-bold">Description</Label>
+                <Textarea className="rounded-xl bg-slate-50 dark:bg-zinc-950 min-h-[100px]" value={newTaskDescription} onChange={(e) => setNewTaskDescription(e.target.value)} />
+              </div>
+
+              <Button type="submit" className="w-full h-12 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white mt-4" disabled={createMutation.isPending || !newTaskTitle}>
+                {createMutation.isPending ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : "Create Task"}
+              </Button>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* KANBAN COLUMNS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-        {columns.map((col) => (
-          <div
-            key={col.id}
-            className={`p-4 rounded-xl border ${col.color} min-h-[400px]`}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-sm">{col.label}</h3>
-              <Badge
-                variant="secondary"
-                className="bg-white/50 dark:bg-black/20"
-              >
-                {tasks.filter((t: any) => t.status === col.id).length}
+      {/* KANBAN BOARD */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+        {STATUSES.map((status) => (
+          <div key={status} className="bg-slate-50/50 dark:bg-zinc-900/50 p-4 rounded-[2rem] border border-slate-200/50 dark:border-zinc-800/50">
+            <div className="flex items-center justify-between mb-4 px-2 pt-2">
+              <h4 className="font-extrabold text-sm tracking-wide uppercase text-zinc-500 dark:text-zinc-400">
+                {status.replace("_", " ")}
+              </h4>
+              <Badge className="bg-white dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-sm border border-slate-200 dark:border-zinc-700">
+                {groupedTasks[status as TaskStatus].length}
               </Badge>
             </div>
-
-            <div className="space-y-3">
-              {tasks
-                .filter((t: any) => t.status === col.id)
-                .map((task: any) => (
-                  <Card
-                    key={task.id}
-                    className="shadow-sm border-zinc-200/60 dark:border-zinc-800/60"
-                  >
-                    <CardHeader className="p-3 pb-0 flex flex-row items-start justify-between">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${task.priority === "HIGH" || task.priority === "URGENT" ? "text-red-500 border-red-200" : ""}`}
-                      >
-                        {task.priority}
-                      </Badge>
-
-                      {/* TASK ACTIONS */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 -mr-2"
-                          >
-                            <MoreHorizontal className="h-4 w-4 text-zinc-400" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                            Move to...
-                          </div>
-                          {columns
-                            .filter((c) => c.id !== task.status)
-                            .map((c) => (
-                              <DropdownMenuItem
-                                key={c.id}
-                                onClick={() =>
-                                  statusMutation.mutate({
-                                    taskId: task.id,
-                                    data: { projectId, status: c.id },
-                                  })
-                                }
-                              >
-                                {c.label}
-                              </DropdownMenuItem>
-                            ))}
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => deleteMutation.mutate(task.id)}
-                          >
-                            Delete Task
+            <div className="space-y-4">
+              {groupedTasks[status as TaskStatus].map((task: any) => (
+                <Card key={task.id} className="shadow-sm border-slate-200 dark:border-zinc-800 rounded-[1.5rem] bg-white dark:bg-zinc-950 hover:shadow-md transition-all">
+                  <CardHeader className="p-5 pb-3 flex flex-row items-center justify-between space-y-0">
+                    <Badge className={cn("px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-widest shadow-none border-0", 
+                      task.priority === "URGENT" ? "bg-red-100 text-red-700 dark:bg-red-900/40" : 
+                      task.priority === "HIGH" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/40" : 
+                      "bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400")}>
+                      {task.priority}
+                    </Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="rounded-xl">
+                        {STATUSES.map((s) => (
+                          <DropdownMenuItem key={s} disabled={task.status === s || updateStatusMutation.isPending} onClick={() => handleStatusChange(task.id, s as TaskStatus)} className="font-medium">
+                            Move to {s.replace("_", " ")}
                           </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </CardHeader>
-
-                    <CardContent className="p-3">
-                      <p className="font-medium text-sm leading-tight">
-                        {task.title}
-                      </p>
-                      {task.description && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {task.description}
-                        </p>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </CardHeader>
+                  <CardContent className="p-5 pt-0">
+                    <p className="font-bold text-base leading-tight text-zinc-900 dark:text-white">{task.title}</p>
+                    {task.description && <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-2 line-clamp-2">{task.description}</p>}
+                    <div className="pt-4 mt-4 border-t border-slate-100 dark:border-zinc-800 space-y-2.5">
+                      {task.assignee ? (
+                        <div className="flex items-center text-xs font-bold text-blue-600 dark:text-blue-400"><User className="h-3.5 w-3.5 mr-1.5" /> {task.assignee.name}</div>
+                      ) : (
+                        <div className="flex items-center text-xs font-medium text-zinc-400"><UserMinus className="h-3.5 w-3.5 mr-1.5" /> Unassigned</div>
                       )}
-
-                      {/* 👉 NEW: SHOW ASSIGNED WORKER */}
-                      <div className="pt-3 mt-2 border-t dark:border-zinc-800">
-                        {task.assignee ? (
-                          <div className="flex items-center text-xs font-medium text-blue-600 dark:text-blue-400">
-                            <User className="h-3 w-3 mr-1" />{" "}
-                            {task.assignee.name}
-                          </div>
-                        ) : (
-                          <div className="flex items-center text-xs text-muted-foreground">
-                            <UserMinus className="h-3 w-3 mr-1" /> Unassigned
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      {task.dueDate && (
+                        <div className={cn("flex items-center text-xs font-bold", new Date(task.dueDate) < new Date() && task.status !== "DONE" ? "text-red-500" : "text-zinc-500")}>
+                          <Calendar className="h-3.5 w-3.5 mr-1.5" /> Due: {new Date(task.dueDate).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
         ))}

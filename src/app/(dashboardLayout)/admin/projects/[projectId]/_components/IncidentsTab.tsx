@@ -4,64 +4,79 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IncidentService } from "@/services/incident.services";
+import { SafetyChecklistService } from "@/services/safetyChecklist.services";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, AlertTriangle, ShieldAlert, CheckCircle2, AlertOctagon, ImagePlus, Image as ImageIcon } from "lucide-react";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription
-} from "@/components/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { 
+  Loader2, ShieldAlert, AlertTriangle, CheckCircle2, AlertCircle, AlertOctagon,
+  ClipboardCheck, Calendar, User, CheckSquare, XSquare, FileText, Image as ImageIcon, Plus, ImagePlus
+} from "lucide-react";
+import { motion } from "framer-motion";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
-export default function IncidentsTab({ projectId }: { projectId: string }) {
+export default function AdminProjectSafetyTab({ projectId }: { projectId: string }) {
   const queryClient = useQueryClient();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   
-  // Form State
+  // --- Modals State ---
+  const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [selectedChecklist, setSelectedChecklist] = useState<any>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [currentPhotos, setCurrentPhotos] = useState<string[]>([]);
+
+  // --- Incident Form State ---
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState("MEDIUM");
   const [photos, setPhotos] = useState<File[]>([]); 
-  const [currentPhotos, setCurrentPhotos] = useState<string[]>([]); // For Photo Viewer
 
-  // Fetch Incidents
-  const { data: response, isLoading } = useQuery({
+  // --- QUERIES (Project Specific) ---
+  const { data: incidentsResponse, isLoading: isIncidentsLoading } = useQuery({
     queryKey: ["project-incidents", projectId],
     queryFn: () => IncidentService.getProjectIncidents(projectId),
     enabled: !!projectId,
   });
 
-  // Mutations
-  const createMutation = useMutation({
+  const { data: checklistsResponse, isLoading: isChecklistsLoading } = useQuery({
+    queryKey: ["project-checklists", projectId],
+    queryFn: () => SafetyChecklistService.getProjectChecklists(projectId),
+    enabled: !!projectId,
+  });
+
+  // --- MUTATIONS ---
+  const createIncidentMutation = useMutation({
     mutationFn: IncidentService.reportIncident,
     onSuccess: () => {
+      toast.success("Incident reported successfully.");
       queryClient.invalidateQueries({ queryKey: ["project-incidents", projectId] });
-      setIsModalOpen(false);
-      setTitle("");
-      setDescription("");
-      setSeverity("MEDIUM");
-      setPhotos([]);
+      setIsIncidentModalOpen(false);
+      setTitle(""); setDescription(""); setSeverity("MEDIUM"); setPhotos([]);
     },
+    onError: (error: any) => toast.error(error?.response?.data?.message || "Failed to report incident.")
   });
 
-  // 👉 FIX: Updated Resolve Mutation to expect { incidentId, data: FormData }
-  const resolveMutation = useMutation({
+  const resolveIncidentMutation = useMutation({
     mutationFn: ({ incidentId, data }: { incidentId: string, data: FormData }) => 
       IncidentService.resolveIncident(incidentId, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-incidents", projectId] }),
+    onSuccess: () => {
+      toast.success("Incident marked as resolved!");
+      queryClient.invalidateQueries({ queryKey: ["project-incidents", projectId] });
+    },
+    onError: (error: any) => toast.error(error?.response?.data?.message || "Failed to resolve incident.")
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // --- HANDLERS ---
+  const handleIncidentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !description) return;
 
@@ -72,19 +87,19 @@ export default function IncidentsTab({ projectId }: { projectId: string }) {
     formData.append("severity", severity);
     formData.append("dateOccurred", new Date().toISOString());
 
-    photos.forEach((file) => {
-      formData.append("photos", file);
-    });
-
-    createMutation.mutate(formData);
+    photos.forEach((file) => formData.append("photos", file));
+    createIncidentMutation.mutate(formData);
   };
 
-  // 👉 NEW: Helper to safely toggle resolution via FormData
   const handleResolveToggle = (incidentId: string, resolveStatus: boolean) => {
     const formData = new FormData();
     formData.append("isResolved", String(resolveStatus));
-    // If Admin wanted to upload proof of fix, we could append photos here too!
-    resolveMutation.mutate({ incidentId, data: formData });
+    resolveIncidentMutation.mutate({ incidentId, data: formData });
+  };
+
+  const openChecklistDetails = (checklist: any) => {
+    setSelectedChecklist(checklist);
+    setIsDetailsModalOpen(true);
   };
 
   const openPhotoViewer = (urls: string[]) => {
@@ -92,203 +107,302 @@ export default function IncidentsTab({ projectId }: { projectId: string }) {
     setIsPhotoModalOpen(true);
   };
 
-  const incidents = response?.data || [];
-
-  const getSeverityBadge = (level: string) => {
-    switch (level) {
-      case "CRITICAL": 
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-900">
-            <AlertOctagon className="w-3 h-3 mr-1"/> Critical
-          </Badge>
-        );
-      case "HIGH": 
-        return (
-          <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/50 dark:text-orange-400 dark:border-orange-900">
-            High
-          </Badge>
-        );
-      case "MEDIUM": 
-        return (
-          <Badge variant="outline" className="bg-yellow-50 text-yellow-800 border-yellow-300 dark:bg-yellow-950/50 dark:text-yellow-400 dark:border-yellow-900">
-            Medium
-          </Badge>
-        );
-      default: 
-        return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900">
-            Low
-          </Badge>
-        );
-    }
-  };
-
-  if (isLoading) {
-    return <div className="flex h-40 items-center justify-center border rounded-xl"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+  if (isIncidentsLoading || isChecklistsLoading) {
+    return <div className="flex min-h-[40vh] items-center justify-center"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
   }
 
+  const incidents = incidentsResponse?.data?.data || incidentsResponse?.data || [];
+  const checklists = checklistsResponse?.data?.data || checklistsResponse?.data || [];
+
   return (
-    <div className="space-y-6">
-      <Card className="shadow-sm border-destructive/20">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-destructive flex items-center">
-              <ShieldAlert className="h-5 w-5 mr-2" />
-              Safety & Incident Reports
-            </CardTitle>
-            <CardDescription>Log and track safety hazards, accidents, and near-misses.</CardDescription>
-          </div>
-          
-          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogTrigger asChild>
-              <Button variant="destructive" size="sm">
-                <AlertTriangle className="h-4 w-4 mr-2" /> 
-                Report Incident
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+    <div className="space-y-8 mt-4">
+      
+      {/* ─── Tabs Interface ─── */}
+      <Tabs defaultValue="incidents" className="w-full">
+        
+        <TabsList className="grid w-full grid-cols-2 max-w-[400px] h-14 rounded-2xl bg-slate-100 dark:bg-zinc-900 p-1 mb-8 shadow-inner border border-slate-200/50 dark:border-zinc-800">
+          <TabsTrigger value="incidents" className="rounded-xl h-full font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400">
+            <AlertTriangle className="w-4 h-4 mr-2"/> Active Incidents
+          </TabsTrigger>
+          <TabsTrigger value="checklists" className="rounded-xl h-full font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400">
+            <ClipboardCheck className="w-4 h-4 mr-2"/> Daily Checklists
+          </TabsTrigger>
+        </TabsList>
+
+        {/* =========================================
+            TAB 1: INCIDENT LOG (PROJECT SPECIFIC)
+        ========================================= */}
+        <TabsContent value="incidents" className="outline-none space-y-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+            <Card className="rounded-[2rem] border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 overflow-hidden">
+              <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-8 border-b border-red-100 dark:border-red-900/20 bg-red-50/50 dark:bg-red-900/10">
+                <div>
+                  <CardTitle className="flex items-center text-2xl font-bold text-red-700 dark:text-red-400 tracking-tight">
+                    <ShieldAlert className="w-6 h-6 mr-3" /> Project Incident Log
+                  </CardTitle>
+                  <CardDescription className="text-red-600/70 dark:text-red-400/70 text-base mt-2 font-medium">
+                    Review, resolve, and report safety hazards for this specific site.
+                  </CardDescription>
+                </div>
+
+                <Dialog open={isIncidentModalOpen} onOpenChange={setIsIncidentModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="w-full sm:w-auto h-12 px-6 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white shadow-[0_8px_20px_-6px_rgba(220,38,38,0.5)] transition-all active:scale-95">
+                      <Plus className="mr-2 h-5 w-5" /> Report Incident
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px] p-8 rounded-[2.5rem]">
+                    <DialogHeader>
+                      <DialogTitle className="text-xl font-bold text-red-600 flex items-center">
+                        <AlertTriangle className="h-6 w-6 mr-3" /> Report a Safety Incident
+                      </DialogTitle>
+                      <DialogDescription>Log a hazard or accident directly to this project&apos;s record.</DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleIncidentSubmit} className="space-y-5 pt-4">
+                      <div className="space-y-2">
+                        <Label className="font-bold">Incident Title *</Label>
+                        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Unsecured scaffolding" required minLength={5} className="h-12 rounded-xl bg-slate-50 dark:bg-zinc-950" />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="font-bold">Severity Level</Label>
+                        <Select value={severity} onValueChange={setSeverity}>
+                          <SelectTrigger className="h-12 rounded-xl bg-slate-50 dark:bg-zinc-950"><SelectValue placeholder="Select severity" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="LOW">Low (Minor hazard, no injury)</SelectItem>
+                            <SelectItem value="MEDIUM">Medium (Requires attention soon)</SelectItem>
+                            <SelectItem value="HIGH">High (Immediate risk of injury)</SelectItem>
+                            <SelectItem value="CRITICAL">Critical (Accident occurred / Halt work)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="font-bold">Description *</Label>
+                        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Describe what happened..." className="min-h-[120px] rounded-xl bg-slate-50 dark:bg-zinc-950 p-4" required minLength={10} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="flex items-center font-bold"><ImagePlus className="h-4 w-4 mr-2" /> Attach Photos (Optional)</Label>
+                        <Input type="file" accept="image/*" multiple onChange={(e) => { if (e.target.files) setPhotos(Array.from(e.target.files)); }} className="h-12 rounded-xl bg-slate-50 dark:bg-zinc-950 pt-3 cursor-pointer" />
+                      </div>
+
+                      <Button type="submit" className="w-full h-12 rounded-xl font-bold bg-red-600 hover:bg-red-700 text-white mt-4" disabled={createIncidentMutation.isPending || title.length < 5 || description.length < 10}>
+                        {createIncidentMutation.isPending ? <Loader2 className="h-5 w-5 mr-2 animate-spin" /> : "Submit Report"}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-slate-50 dark:bg-zinc-950/50">
+                    <TableRow className="border-b border-slate-100 dark:border-zinc-800 hover:bg-transparent">
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-zinc-500">Date</TableHead>
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-zinc-500">Incident Details</TableHead>
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-zinc-500">Severity</TableHead>
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-zinc-500">Status</TableHead>
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-zinc-500 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {incidents.map((incident: any) => (
+                      <TableRow key={incident.id} className="border-b border-slate-100 dark:border-zinc-800/50 hover:bg-slate-50/50 dark:hover:bg-zinc-800/20">
+                        <TableCell className="px-8 py-5">
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white">{new Date(incident.createdAt).toLocaleDateString()}</p>
+                        </TableCell>
+                        <TableCell className="px-8 py-5">
+                          <p className="font-bold text-zinc-900 dark:text-white text-sm">{incident.title}</p>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-[250px] truncate mt-1">{incident.description}</p>
+                        </TableCell>
+                        <TableCell className="px-8 py-5">
+                          <Badge className={cn(
+                            "px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest shadow-none border-0",
+                            incident.severity === "HIGH" ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                            : incident.severity === "CRITICAL" ? "bg-red-200 text-red-800 dark:bg-red-950 dark:text-red-300"
+                            : incident.severity === "MEDIUM" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+                          )}>
+                            {incident.severity}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-8 py-5">
+                          <div className={cn("inline-flex items-center px-3 py-1.5 rounded-full text-[10px] font-extrabold tracking-widest uppercase shadow-sm border",
+                            incident.isResolved ? "bg-slate-50 border-slate-200 text-slate-600 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300" : "bg-red-500 border-red-600 text-white shadow-[0_4px_14px_rgba(239,68,68,0.3)]"
+                          )}>
+                            {incident.isResolved ? <><CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Resolved</> : <><AlertCircle className="w-3.5 h-3.5 mr-1.5" /> Action Required</>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-8 py-5 text-right">
+                          <div className="flex justify-end gap-2">
+                            {incident.photoUrls?.length > 0 && (
+                              <Button variant="outline" size="sm" className="h-9 rounded-lg font-bold border-slate-200" onClick={() => openPhotoViewer(incident.photoUrls)}>
+                                <ImageIcon className="h-3.5 w-3.5 mr-2" /> Evidence
+                              </Button>
+                            )}
+                            {!incident.isResolved && (
+                              <Button variant="outline" size="sm" className="h-9 rounded-lg font-bold border-emerald-500 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700" onClick={() => handleResolveToggle(incident.id, true)} disabled={resolveIncidentMutation.isPending}>
+                                {resolveIncidentMutation.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5 mr-2" /> Resolve</>}
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {incidents.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-20">
+                          <div className="flex flex-col items-center justify-center">
+                            <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center mb-4">
+                              <CheckCircle2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <p className="text-xl font-bold text-zinc-900 dark:text-white">Project Clear</p>
+                            <p className="mt-1 text-zinc-500 font-medium">No safety incidents reported for this site! 🎉</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
+
+        {/* =========================================
+            TAB 2: DAILY CHECKLISTS (PROJECT SPECIFIC)
+        ========================================= */}
+        <TabsContent value="checklists" className="outline-none space-y-6">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+            <Card className="rounded-[2rem] border-slate-200 dark:border-zinc-800 shadow-sm bg-white dark:bg-zinc-900 overflow-hidden">
+              <CardHeader className="bg-blue-50/50 dark:bg-blue-900/10 border-b border-blue-100 dark:border-blue-900/20 p-8">
+                <CardTitle className="flex items-center text-2xl font-bold text-blue-700 dark:text-blue-400 tracking-tight">
+                  <ClipboardCheck className="w-6 h-6 mr-3" /> Project Safety Inspections
+                </CardTitle>
+                <CardDescription className="text-blue-600/70 dark:text-blue-400/70 text-base mt-2 font-medium">
+                  Review daily safety compliance checklists submitted by managers on this site.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="p-0">
+                <Table>
+                  <TableHeader className="bg-slate-50 dark:bg-zinc-950/50">
+                    <TableRow className="border-b border-slate-100 dark:border-zinc-800 hover:bg-transparent">
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-zinc-500">Date</TableHead>
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-zinc-500">Submitted By</TableHead>
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-zinc-500">Inspection Result</TableHead>
+                      <TableHead className="px-8 py-5 text-xs font-bold uppercase tracking-wider text-zinc-500 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {checklists.map((check: any) => (
+                      <TableRow key={check.id} className="border-b border-slate-100 dark:border-zinc-800/50 hover:bg-slate-50/50 dark:hover:bg-zinc-800/20">
+                        <TableCell className="px-8 py-5">
+                          <p className="text-sm font-bold text-zinc-900 dark:text-white flex items-center">
+                            <Calendar className="w-3.5 h-3.5 mr-2 text-zinc-400" />
+                            {new Date(check.checkDate).toLocaleDateString()}
+                          </p>
+                        </TableCell>
+                        <TableCell className="px-8 py-5">
+                          <p className="font-bold text-zinc-900 dark:text-white text-sm">{check.submitter?.name || "Unknown"}</p>
+                          <p className="text-xs text-zinc-500 mt-0.5">{check.submitter?.email}</p>
+                        </TableCell>
+                        <TableCell className="px-8 py-5">
+                          <Badge className={cn(
+                            "px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-widest shadow-none border-0",
+                            check.allClear ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40" : "bg-red-100 text-red-700 dark:bg-red-900/40"
+                          )}>
+                            {check.allClear ? "All Clear (100%)" : "Issues Found"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-8 py-5 text-right">
+                          <Button variant="outline" size="sm" className="h-9 rounded-lg font-bold border-slate-200 hover:bg-slate-50 dark:hover:bg-zinc-800" onClick={() => openChecklistDetails(check)}>
+                            <FileText className="w-3.5 h-3.5 mr-2" /> View Report
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {checklists.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-20">
+                          <div className="flex flex-col items-center justify-center">
+                            <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mb-4">
+                              <ClipboardCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <p className="text-xl font-bold text-zinc-900 dark:text-white">No Inspections Logged</p>
+                            <p className="mt-1 text-zinc-500 font-medium">Managers have not submitted any checklists for this project.</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </TabsContent>
+      </Tabs>
+
+      {/* =========================================
+          MODALS
+      ========================================= */}
+
+      {/* CHECKLIST DETAILS MODAL */}
+      <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto rounded-[2.5rem] p-8">
+          {selectedChecklist && (
+            <>
               <DialogHeader>
-                <DialogTitle className="text-destructive flex items-center">
-                  <AlertTriangle className="h-5 w-5 mr-2" />
-                  Report a Safety Incident
+                <DialogTitle className="flex justify-between items-center text-xl font-bold pr-4">
+                  Safety Report
+                  <Badge className={cn("px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest shadow-none border-0", selectedChecklist.allClear ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>
+                    {selectedChecklist.allClear ? "All Clear" : "Issues Found"}
+                  </Badge>
                 </DialogTitle>
-                <DialogDescription>
-                  Provide details about the hazard or accident. This will alert project managers.
+                <DialogDescription className="flex items-center pt-2 font-medium">
+                  <Calendar className="w-3.5 h-3.5 mr-1.5" /> {new Date(selectedChecklist.checkDate).toLocaleDateString()}
+                  <span className="mx-3 text-zinc-300">•</span>
+                  <User className="w-3.5 h-3.5 mr-1.5" /> {selectedChecklist.submitter?.name}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label>Incident Title *</Label>
-                  <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., Unsecured scaffolding on Level 3" required minLength={5} />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Severity Level</Label>
-                  <Select value={severity} onValueChange={setSeverity}>
-                    <SelectTrigger><SelectValue placeholder="Select severity" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="LOW">Low (Minor hazard, no injury)</SelectItem>
-                      <SelectItem value="MEDIUM">Medium (Requires attention soon)</SelectItem>
-                      <SelectItem value="HIGH">High (Immediate risk of injury)</SelectItem>
-                      <SelectItem value="CRITICAL">Critical (Accident occurred / Halt work)</SelectItem>
-                    </SelectContent>
-                  </Select>
+
+              <div className="space-y-6 pt-4">
+                <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
+                  <h4 className="bg-slate-50 dark:bg-zinc-900/50 p-4 text-sm font-bold border-b border-slate-200 dark:border-zinc-800 uppercase tracking-wider text-zinc-500">Verification Items</h4>
+                  <div className="p-4 space-y-3">
+                    {Object.entries(selectedChecklist.checklistData).map(([key, passed]: any) => (
+                      <div key={key} className={`flex items-start text-sm ${passed ? "text-zinc-700 dark:text-zinc-300 font-medium" : "text-red-600 dark:text-red-400 font-bold"}`}>
+                        {passed ? <CheckSquare className="w-4 h-4 mr-3 text-emerald-500 shrink-0 mt-0.5" /> : <XSquare className="w-4 h-4 mr-3 text-red-500 shrink-0 mt-0.5" />}
+                        <span className="leading-tight">{key}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Description *</Label>
-                  <Textarea 
-                    value={description} 
-                    onChange={(e) => setDescription(e.target.value)} 
-                    placeholder="Describe what happened... (Min 10 characters)" 
-                    className="min-h-[100px]"
-                    required 
-                    minLength={10}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="flex items-center">
-                    <ImagePlus className="h-4 w-4 mr-2" /> Attach Photos (Optional)
-                  </Label>
-                  <Input 
-                    type="file" accept="image/*" multiple 
-                    onChange={(e) => { if (e.target.files) setPhotos(Array.from(e.target.files)); }} 
-                    className="cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex justify-end pt-4">
-                  <Button type="submit" variant="destructive" disabled={createMutation.isPending || title.length < 5 || description.length < 10}>
-                    {createMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : "Submit Report"}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-
-        <CardContent className="p-0">
-          {incidents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-48 text-center bg-zinc-50 dark:bg-zinc-900/50">
-              <div className="h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-3">
-                <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                {selectedChecklist.notes && (
+                  <div className="border border-amber-200 dark:border-amber-900/50 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 p-5 shadow-sm">
+                    <h4 className="text-xs font-extrabold text-amber-800 dark:text-amber-500 mb-2 uppercase tracking-widest">Inspector Notes</h4>
+                    <p className="text-sm text-amber-900 dark:text-amber-400 whitespace-pre-wrap font-medium leading-relaxed">
+                      {selectedChecklist.notes}
+                    </p>
+                  </div>
+                )}
               </div>
-              <h3 className="font-semibold text-lg">Zero Incidents Reported</h3>
-              <p className="text-muted-foreground text-sm">This site currently has a perfect safety record.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-zinc-50 dark:bg-zinc-900/50 text-zinc-500 border-y border-zinc-200 dark:border-zinc-800">
-                  <tr>
-                    <th className="px-6 py-3 font-medium">Incident</th>
-                    <th className="px-6 py-3 font-medium">Severity</th>
-                    <th className="px-6 py-3 font-medium">Status</th>
-                    <th className="px-6 py-3 font-medium">Evidence</th>
-                    <th className="px-6 py-3 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                  {incidents.map((incident: any) => (
-                    <tr key={incident.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-900/50">
-                      <td className="px-6 py-4">
-                        <p className="font-medium">{incident.title}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1 max-w-[250px]">{incident.description}</p>
-                      </td>
-                      <td className="px-6 py-4">{getSeverityBadge(incident.severity)}</td>
-                      <td className="px-6 py-4">
-                        <Badge variant={incident.isResolved ? "outline" : "default"}>
-                          {incident.isResolved ? "RESOLVED" : "OPEN"}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4">
-                        {/* 👉 PHOTO VIEWER BUTTON */}
-                        {incident.photoUrls?.length > 0 ? (
-                          <Button variant="outline" size="sm" onClick={() => openPhotoViewer(incident.photoUrls)} className="h-8">
-                            <ImageIcon className="h-3 w-3 mr-2" /> View
-                          </Button>
-                        ) : <span className="text-xs text-muted-foreground">None</span>}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" disabled={resolveMutation.isPending}>
-                              {resolveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update"}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {!incident.isResolved ? (
-                              <DropdownMenuItem onClick={() => handleResolveToggle(incident.id, true)}>
-                                <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" /> Mark as Resolved
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem onClick={() => handleResolveToggle(incident.id, false)}>
-                                <AlertTriangle className="h-4 w-4 mr-2 text-yellow-500" /> Re-open Incident
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            </>
           )}
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
-      {/* 👉 NEW: PHOTO VIEWER MODAL */}
+      {/* EVIDENCE VIEWER MODAL */}
       <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-4xl p-8 rounded-[2.5rem]">
           <DialogHeader>
-            <DialogTitle>Incident Evidence</DialogTitle>
-            <DialogDescription>Photos submitted for this report.</DialogDescription>
+            <DialogTitle className="text-2xl font-bold">Incident Evidence</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 max-h-[60vh] overflow-y-auto p-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 max-h-[70vh] overflow-y-auto pr-2">
             {currentPhotos.map((url, index) => (
-              <div key={index} className="relative aspect-video rounded-md overflow-hidden border">
+              <div key={index} className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 shadow-sm">
                 <img src={url} alt={`Evidence ${index + 1}`} className="object-cover w-full h-full" />
               </div>
             ))}

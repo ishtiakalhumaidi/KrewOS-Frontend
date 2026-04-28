@@ -1,273 +1,148 @@
-/* eslint-disable react/no-unescaped-entities */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { MemberPortalService } from "@/services/memberPortal.services";
-import { AttendanceService } from "@/services/attendance.services";
+import { ProjectMemberService } from "@/services/projectMember.services";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Loader2,
-  MapPin,
-  Clock,
-  ShieldAlert,
-  Package,
-  CheckCircle2,
-  LogOut,
-} from "lucide-react";
-import { toast } from "sonner";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Loader2, MapPin, ArrowLeft, Phone, Mail, HardHat, ShieldCheck, LayoutGrid, Clock, CheckSquare, Package, FileText, Users, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
-export default function WorkerSitePortalPage() {
+import MemberAttendanceTab from "./_components/MemberAttendanceTab";
+import MemberTasksTab from "./_components/MemberTasksTab";
+import MemberSafetyTab from "./_components/MemberSafetyTab";
+import MemberTeamTab from "./_components/MemberTeamTab";
+import MemberMaterialsTab from "./_components/MemberMaterialsTab";
+import MemberReportsTab from "./_components/MemberReportsTab";
+
+export default function MemberProjectWorkspace() {
   const params = useParams();
   const projectId = params.projectId as string;
-  const queryClient = useQueryClient();
 
-  // 1. Fetch Project Details
   const { data: projectResponse, isLoading: isProjectLoading } = useQuery({
     queryKey: ["project", projectId],
     queryFn: () => MemberPortalService.getProjectDetails(projectId),
     enabled: !!projectId,
   });
 
-  // 2. Fetch Worker's Status for Today
-  const { data: attendanceResponse, isLoading: isAttendanceLoading } = useQuery(
-    {
-      queryKey: ["my-attendance", projectId],
-      queryFn: () => AttendanceService.getMyTodayAttendance(projectId),
-      enabled: !!projectId,
-    },
-  );
-
-  // 3. Clock In Mutation
-  const clockInMutation = useMutation({
-    mutationFn: () =>
-      AttendanceService.clockIn({ projectId, method: "MOBILE_APP" }),
-    onSuccess: () => {
-      toast.success("Successfully clocked into site!");
-      queryClient.invalidateQueries({ queryKey: ["my-attendance", projectId] });
-    },
-      onError: (error: any) => {
-  const errors = error?.response?.data?.errorSources;
-
-  if (errors?.length) {
-    errors.forEach((err: any) => {
-      toast.error(err.message);
-    });
-  } else {
-    toast.error(error?.response?.data?.message || "Failed to clock in.");
-  }
-}
+  const { data: memberResponse, isLoading: isMemberLoading } = useQuery({
+    queryKey: ["project-member", projectId, "me"],
+    queryFn: () => ProjectMemberService.getMyRole(projectId),
+    enabled: !!projectId,
   });
 
-  // 4. Clock Out Mutation
-  const clockOutMutation = useMutation({
-    mutationFn: (attendanceId: string) =>
-      AttendanceService.clockOut(attendanceId),
-    onSuccess: () => {
-      toast.success("Successfully clocked out for the day!");
-      queryClient.invalidateQueries({ queryKey: ["my-attendance", projectId] });
-    },
-    onError: (error: any) => {
-  const errors = error?.response?.data?.errorSources;
-
-  if (errors?.length) {
-    errors.forEach((err: any) => {
-      toast.error(err.message);
-    });
-  } else {
-    toast.error(error?.response?.data?.message || "Failed to clock out.");
-  }
-}
+  const { data: teamResponse, isLoading: isTeamLoading } = useQuery({
+    queryKey: ["project-team", projectId],
+    queryFn: () => ProjectMemberService.getProjectMembers(projectId),
+    enabled: !!projectId,
   });
 
-  const project = projectResponse?.data;
-  const todayRecord = attendanceResponse?.data;
+  const project = projectResponse?.data || projectResponse;
+  const myRole = memberResponse?.data?.role || "WORKER";
+  const teamMembers = teamResponse?.data || [];
 
-  if (isProjectLoading || isAttendanceLoading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const projectManagers = teamMembers.filter((m: any) => m.role === "PROJECT_MANAGER" || m.role === "SITE_MANAGER");
+  const safetyOfficers = teamMembers.filter((m: any) => m.role === "SAFETY_OFFICER");
 
-  if (!project) {
-    return (
-      <div className="p-4 text-center mt-10">
-        Project not found or access denied.
-      </div>
-    );
+  const [activeTab, setActiveTab] = useState<string | undefined>(undefined);
+  const currentTab = activeTab ?? (myRole === "SAFETY_OFFICER" ? "safety" : myRole === "WORKER" ? "tasks" : "overview");
+
+  if (isProjectLoading || isMemberLoading || isTeamLoading) {
+    return <div className="flex h-[60vh] items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-blue-600" /></div>;
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Badge
-              variant="outline"
-              className="bg-blue-50 text-blue-700 border-blue-200"
-            >
-              Site Portal
-            </Badge>
-            <Badge
-              variant={project.status === "ACTIVE" ? "default" : "secondary"}
-            >
-              {project.status}
-            </Badge>
+    <div className="space-y-8 max-w-7xl mx-auto pb-12 pt-4">
+      {/* ─── Premium Header ─── */}
+      <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-1">
+        <div className="flex items-center space-x-5">
+          <Link href="/member/projects">
+            <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-slate-200 dark:border-zinc-800 shadow-sm hover:bg-slate-50 transition-all">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </Link>
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-zinc-900 dark:text-white">{project.name}</h1>
+              <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 px-3 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-widest border-0">
+                {myRole.replace("_", " ")}
+              </Badge>
+            </div>
+            <div className="flex items-center text-zinc-500 font-medium mt-2 text-sm">
+              <MapPin className="h-4 w-4 mr-1.5 text-zinc-400" /> {project.location}
+            </div>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">{project.name}</h1>
-          <p className="text-muted-foreground flex items-center mt-1">
-            <MapPin className="h-4 w-4 mr-1" /> {project.location}
-          </p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        {/* DYNAMIC ATTENDANCE TERMINAL */}
-        <Card
-          className={`md:col-span-2 border-2 ${
-            todayRecord?.clockOut
-              ? "border-green-100 bg-green-50/30 dark:border-green-900 dark:bg-green-950/20"
-              : todayRecord
-                ? "border-orange-100 bg-orange-50/30 dark:border-orange-900 dark:bg-orange-950/20"
-                : "border-blue-100 bg-blue-50/30 dark:border-blue-900 dark:bg-blue-950/20"
-          }`}
-        >
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Clock className="h-5 w-5 mr-2" /> Daily Time Clock
-            </CardTitle>
-            <CardDescription>
-              Record your hours for this specific construction site.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center py-6 space-y-4">
-            {
-              /* SCENARIO 1: Shift is entirely finished */
-              todayRecord?.clockOut ? (
-                <div className="flex flex-col items-center">
-                  <div className="h-16 w-16 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center mb-2">
-                    <CheckCircle2 className="h-8 w-8 text-green-600" />
-                  </div>
-                  <h3 className="text-xl font-bold text-green-700 dark:text-green-500">
-                    Shift Completed
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    You worked {todayRecord.hoursWorked} hours today.
-                  </p>
-                </div>
-              ) : /* SCENARIO 2: Currently clocked in, need to clock out */
-              todayRecord ? (
-                <>
-                  <Button
-                    size="lg"
-                    className="w-full max-w-sm h-16 text-lg bg-orange-500 hover:bg-orange-600 shadow-lg"
-                    onClick={() => clockOutMutation.mutate(todayRecord.id)}
-                    disabled={clockOutMutation.isPending}
-                  >
-                    {clockOutMutation.isPending ? (
-                      <Loader2 className="h-6 w-6 mr-2 animate-spin" />
-                    ) : (
-                      <LogOut className="h-6 w-6 mr-2" />
-                    )}
-                    Clock Out
-                  </Button>
-                  <p className="text-xs text-orange-600/80 dark:text-orange-400 font-medium animate-pulse">
-                    You are currently active on site. Don't forget to clock out!
-                  </p>
-                </>
-              ) : (
-                /* SCENARIO 3: Has not clocked in yet */
-                <>
-                  <Button
-                    size="lg"
-                    className="w-full max-w-sm h-16 text-lg bg-blue-600 hover:bg-blue-700 shadow-lg"
-                    onClick={() => clockInMutation.mutate()}
-                    disabled={clockInMutation.isPending}
-                  >
-                    {clockInMutation.isPending ? (
-                      <Loader2 className="h-6 w-6 mr-2 animate-spin" />
-                    ) : (
-                      <CheckCircle2 className="h-6 w-6 mr-2" />
-                    )}
-                    Clock In to Site
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center max-w-xs">
-                    Ensure you have your PPE on before clocking in.
-                  </p>
-                </>
-              )
-            }
-          </CardContent>
-        </Card>
+      {/* ─── Premium Navigation Tabs ─── */}
+      <Tabs value={currentTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="flex flex-wrap justify-start gap-2 h-auto p-1 mb-8 bg-slate-100/50 dark:bg-zinc-900/50 rounded-[1.5rem] border border-slate-200/50 dark:border-zinc-800/50 w-fit">
+          <TabsTrigger value="overview" className="rounded-xl px-6 py-2.5 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all"><LayoutGrid className="w-4 h-4 mr-2"/>Overview</TabsTrigger>
+          <TabsTrigger value="timecard" className="rounded-xl px-6 py-2.5 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all"><Clock className="w-4 h-4 mr-2"/>Timecard</TabsTrigger>
+          <TabsTrigger value="tasks" className="rounded-xl px-6 py-2.5 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all"><CheckSquare className="w-4 h-4 mr-2"/>Tasks</TabsTrigger>
+          <TabsTrigger value="materials" className="rounded-xl px-6 py-2.5 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all"><Package className="w-4 h-4 mr-2"/>Materials</TabsTrigger>
+          {(myRole === "SAFETY_OFFICER" || myRole === "SITE_MANAGER" || myRole === "PROJECT_MANAGER") && (
+            <TabsTrigger value="safety" className="rounded-xl px-6 py-2.5 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all"><ShieldAlert className="w-4 h-4 mr-2"/>Safety</TabsTrigger>
+          )}
+          {(myRole === "SITE_MANAGER" || myRole === "PROJECT_MANAGER") && (
+            <>
+               <TabsTrigger value="reports" className="rounded-xl px-6 py-2.5 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all"><FileText className="w-4 h-4 mr-2"/>Reports</TabsTrigger>
+               <TabsTrigger value="team" className="rounded-xl px-6 py-2.5 font-bold data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-800 data-[state=active]:shadow-sm transition-all"><Users className="w-4 h-4 mr-2"/>Team</TabsTrigger>
+            </>
+          )}
+        </TabsList>
 
-        {/* QUICK ACTIONS */}
-        <div className="space-y-4">
-          <Card className="shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                className="w-full justify-start h-12"
-                asChild
-              >
-                <Link href={`/member/tasks?projectId=${projectId}`}>
-                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" /> View
-                  My Tasks
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start h-12"
-                asChild
-              >
-                <Link href="/member/report-incident">
-                  <ShieldAlert className="mr-2 h-4 w-4 text-orange-600" />{" "}
-                  Report Incident
-                </Link>
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start h-12"
-                asChild
-              >
-                <Link href="/member/materials">
-                  <Package className="mr-2 h-4 w-4 text-purple-600" /> Request
-                  Material
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+        <TabsContent value="overview" className="outline-none">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <Card className="lg:col-span-2 rounded-[2.5rem] border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+              <CardHeader className="p-8 border-b bg-slate-50/50 dark:bg-zinc-900/10">
+                <CardTitle className="text-2xl font-bold">Site Instructions</CardTitle>
+              </CardHeader>
+              <CardContent className="p-8">
+                <p className="text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap leading-relaxed text-lg font-medium">
+                  {project.description || "No specific instructions provided for this site by management."}
+                </p>
+              </CardContent>
+            </Card>
 
-      {/* PROJECT DETAILS */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Site Instructions & Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">
-            {project.description ||
-              "No specific instructions provided for this site."}
-          </p>
-        </CardContent>
-      </Card>
+            <div className="space-y-6">
+              <Card className="rounded-[2.5rem] border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+                <CardHeader className="p-8 pb-4">
+                  <CardTitle className="text-xl font-bold flex items-center"><HardHat className="w-6 h-6 mr-3 text-blue-600" /> Key Personnel</CardTitle>
+                </CardHeader>
+                <CardContent className="p-8 pt-0 space-y-4">
+                  {projectManagers.map((pm: any) => (
+                    <div key={pm.userId} className="flex items-center space-x-4 p-4 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800">
+                      <Avatar className="h-12 w-12 border-2 border-white shadow-sm"><AvatarFallback>{pm.user?.name?.charAt(0)}</AvatarFallback></Avatar>
+                      <div className="flex-1 overflow-hidden">
+                        <p className="font-bold truncate text-zinc-900 dark:text-white">{pm.user?.name}</p>
+                        <p className="text-[10px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-widest">{pm.role.replace("_", " ")}</p>
+                      </div>
+                      <a href={`tel:${pm.user.phone}`} className="h-10 w-10 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500 hover:text-blue-600 transition-colors shadow-sm"><Phone className="w-4 h-4" /></a>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="timecard" className="outline-none"><MemberAttendanceTab projectId={projectId} myRole={myRole} /></TabsContent>
+        <TabsContent value="tasks" className="outline-none"><MemberTasksTab projectId={projectId} myRole={myRole} /></TabsContent>
+        <TabsContent value="materials" className="outline-none"><MemberMaterialsTab projectId={projectId} myRole={myRole} /></TabsContent>
+        <TabsContent value="reports" className="outline-none"><MemberReportsTab projectId={projectId} /></TabsContent>
+        <TabsContent value="safety" className="outline-none"><MemberSafetyTab projectId={projectId} /></TabsContent>
+        <TabsContent value="team" className="outline-none"><MemberTeamTab projectId={projectId} /></TabsContent>
+      </Tabs>
     </div>
   );
 }

@@ -37,7 +37,7 @@ export default function MyMaterialsPage() {
   // Fetch Requests & Projects
   const { data: requestResponse, isLoading } = useQuery({
     queryKey: ["my-materials"],
-    queryFn: MaterialRequestService.getMyRequests,
+    queryFn: () => MaterialRequestService.getMyRequests(),
   });
 
   const { data: projectsResponse } = useQuery({

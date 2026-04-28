@@ -1,145 +1,46 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
-import { AuthService } from "@/services/auth.services";
+/* eslint-disable react/no-unescaped-entities */
+import RegisterForm from "@/components/modules/Auth/RegisterForm";
 import Link from "next/link";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Building2, User, Mail, Lock } from "lucide-react";
-import { toast } from "sonner";
-
 export default function RegisterPage() {
-  const router = useRouter();
-  const [formData, setFormData] = useState({
-    companyName: "",
-    name: "",
-    email: "",
-    password: "",
-  });
-
-  const registerMutation = useMutation({
-    mutationFn: AuthService.registerCompany,
-    onSuccess: () => {
-      toast.success("Account created! Please check your email for the verification code.");
-      // 👉 Redirect to the verification page and pass the email in the URL!
-      router.push(`/verify?email=${encodeURIComponent(formData.email)}`);
-    },
-   onError: (error: any) => {
-  const errors = error?.response?.data?.errorSources;
-
-  if (errors?.length) {
-    errors.forEach((err: any) => {
-      toast.error(err.message);
-    });
-  } else {
-    toast.error(error?.response?.data?.message || "Registration failed. Please try again.");
-  }
-}
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.companyName || !formData.name || !formData.email || !formData.password) {
-      return toast.error("Please fill in all fields.");
-    }
-    registerMutation.mutate(formData);
-  };
-
   return (
-    <div className="flex flex-col space-y-6 w-full sm:w-[400px] mx-auto">
-      {/* 👉 Clean, out-of-box top header */}
-      <div className="flex flex-col space-y-2 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Create your Workspace
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Enter your company details below to get started.
-        </p>
-      </div>
+    <div className="min-h-screen sm:mt-6 mt-10 flex flex-col items-center justify-center p-4 sm:p-8 font-sans selection:bg-blue-200">
+      <div className="w-full max-w-130 flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* Branding Header */}
+        <div className="flex flex-col items-center text-center px-4">
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-50">
+            Create your Workspace
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 mt-2.5 text-sm sm:text-base font-medium">
+            Enter your company details below to get started.
+          </p>
+        </div>
 
-      {/* 👉 Clean White Card Layout */}
-      <Card className="border-zinc-200 dark:border-zinc-800 shadow-sm">
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            
-            <div className="space-y-2">
-              <Label className="flex items-center text-zinc-700 dark:text-zinc-300">
-                <Building2 className="w-4 h-4 mr-2 text-muted-foreground"/> 
-                Company Name
-              </Label>
-              <Input 
-                placeholder="e.g., Apex Construction LLC" 
-                value={formData.companyName}
-                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                required
-              />
-            </div>
+        {/* The Soft, Floating Card */}
+        <div className="bg-white dark:bg-zinc-900/80 rounded-[2.5rem] p-6 sm:p-10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] border border-slate-100/80 dark:border-zinc-800 backdrop-blur-xl">
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              Sign Up
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">
+              Set up your administrator account.
+            </p>
+          </div>
 
-            <div className="space-y-2">
-              <Label className="flex items-center text-zinc-700 dark:text-zinc-300">
-                <User className="w-4 h-4 mr-2 text-muted-foreground"/> 
-                Full Name
-              </Label>
-              <Input 
-                placeholder="John Doe" 
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
-            </div>
+          {/* Renders the internal form component */}
+          <RegisterForm />
+        </div>
 
-            <div className="space-y-2">
-              <Label className="flex items-center text-zinc-700 dark:text-zinc-300">
-                <Mail className="w-4 h-4 mr-2 text-muted-foreground"/> 
-                Work Email
-              </Label>
-              <Input 
-                type="email" 
-                placeholder="admin@apexconstruction.com" 
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="flex items-center text-zinc-700 dark:text-zinc-300">
-                <Lock className="w-4 h-4 mr-2 text-muted-foreground"/> 
-                Password
-              </Label>
-              <Input 
-                type="password" 
-                placeholder="••••••••" 
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-                minLength={6}
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white" 
-              disabled={registerMutation.isPending}
-            >
-              {registerMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Register Company
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <div className="text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
-        <Link href="/login" className="text-blue-600 hover:text-blue-700 hover:underline font-medium">
-          Sign in
-        </Link>
+        {/* Footer Link */}
+        <div className="text-center text-sm font-medium text-slate-500 dark:text-slate-400 pb-8">
+          Already have an account?{" "}
+          <Link
+            href="/login"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-md px-1"
+          >
+            Sign in
+          </Link>
+        </div>
       </div>
     </div>
   );

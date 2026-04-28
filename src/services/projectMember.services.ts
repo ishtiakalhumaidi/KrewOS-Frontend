@@ -6,7 +6,9 @@ export const ProjectMemberService = {
   getProjectMembers: async (projectId: string) => {
     const res = await httpClient.get(`/project-members/project/${projectId}`);
     return res;
-
+  },
+  getMyRole: async (projectId: string) => {
+    return await httpClient.get(`/project-members/project/${projectId}/me`);
   },
 
   // ✅ ADD member (this one was already correct)
@@ -31,7 +33,7 @@ export const ProjectMemberService = {
   }) => {
     const res = await httpClient.patch(
       `/project-members/project/${projectId}/user/${userId}/role`,
-      { projectRole }
+      { projectRole },
     );
     return res;
   },
@@ -45,7 +47,7 @@ export const ProjectMemberService = {
     userId: string;
   }) => {
     const res = await httpClient.delete(
-      `/project-members/project/${projectId}/user/${userId}`
+      `/project-members/project/${projectId}/user/${userId}`,
     );
     return res;
   },

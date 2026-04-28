@@ -7,8 +7,11 @@ export const TaskService = {
   getProjectTasks: async (projectId: string) => {
     return await httpClient.get(`/tasks/project/${projectId}`);
   },
-  getMyTasks: async () => {
-    return await httpClient.get("/tasks/my-tasks");
+  getMyTasks: async (projectId?: string) => {
+    const url = projectId
+      ? `/tasks/my-tasks?projectId=${projectId}`
+      : "/tasks/my-tasks";
+    return await httpClient.get(url);
   },
   // Create a new task
   createTask: async (data: {
